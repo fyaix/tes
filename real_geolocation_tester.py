@@ -53,21 +53,21 @@ class RealGeolocationTester:
             print(f"🔧 MODIFIED TES8: Same domain {domain} - WILL TEST (user preference: don't skip)")
             return domain
             
-        # MODIFIED TES8: Handle PREFIX case (user's example)
-        # quiz.int.vidio.com.admin.ari-andika2.site → admin.ari-andika2.site
-        if domain.startswith(server + '.'):
-            # Extract suffix setelah server domain
-            suffix = domain[len(server + '.'):]
-            print(f"🔧 MODIFIED TES8: Clean {domain} → {suffix} (removed prefix {server})")
-            return suffix
-            
-        # MODIFIED TES8: Handle SUFFIX case (classic case)
-        # sg.example.com → sg
-        if domain.endswith('.' + server):
-            # Extract prefix sebelum server domain
-            prefix = domain[:-len('.' + server)]
-            print(f"🔧 MODIFIED TES8: Clean {domain} → {prefix} (removed suffix {server})")
-            return prefix
+        # MODIFIED TES8: Handle COMPLEX SUBDOMAIN case (user's new example)
+        # tod.com.do-v3.bhm69.site with server=tod.com → extract tod.com (subdomain)
+        # This happens when domain contains server as prefix followed by longer domain
+        if server in domain and domain != server:
+            # Case 1: server is exact prefix with dot separator
+            if domain.startswith(server + '.'):
+                # Extract the server part (subdomain extraction)
+                print(f"🔧 MODIFIED TES8: Extract subdomain {domain} → {server} (subdomain from complex domain)")
+                return server
+            # Case 2: server is exact suffix with dot separator  
+            elif domain.endswith('.' + server):
+                # Extract prefix sebelum server domain (classic case)
+                prefix = domain[:-len('.' + server)]
+                print(f"🔧 MODIFIED TES8: Clean {domain} → {prefix} (removed suffix {server})")
+                return prefix
         
         # MODIFIED TES8: Jika berbeda total, keep as-is
         print(f"🔧 MODIFIED TES8: Domain different from server: {domain} (keep as-is)")
