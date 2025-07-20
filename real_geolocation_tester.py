@@ -29,12 +29,36 @@ class RealGeolocationTester:
         ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', path)
         return ip_match.group(0) if ip_match else None
     
+    def clean_domain_from_server(self, domain, server):
+        """
+        Clean domain dari server part
+        Example: server="example.com", domain="sg.example.com" → return "sg"
+        Example: server="example.com", domain="example.com" → return None (sama persis)
+        """
+        if not domain or not server:
+            return domain
+            
+        # Jika sama persis, biarkan saja (return None untuk skip)
+        if domain == server:
+            return None
+            
+        # Jika domain mengandung server sebagai suffix
+        if domain.endswith('.' + server):
+            # Extract prefix sebelum server domain
+            prefix = domain[:-len('.' + server)]
+            print(f"🔧 Cleaned domain: {domain} → {prefix} (removed .{server})")
+            return prefix
+        
+        # Jika berbeda total, return as-is
+        print(f"🔧 Domain different from server: {domain} (keep as-is)")
+        return domain
+    
     def get_lookup_target(self, account):
         """
-        Implement user's priority logic:
+        Enhanced user's priority logic dengan domain cleaning:
         1. IP dari path (highest priority)
-        2. SNI (jika berbeda dari server)
-        3. Host (jika berbeda dari server)
+        2. SNI (cleaned dari server domain jika perlu)
+        3. Host (cleaned dari server domain jika perlu)  
         4. JANGAN PERNAH test server field
         """
         server = account.get('server', '')
@@ -68,18 +92,24 @@ class RealGeolocationTester:
             if isinstance(headers, dict):
                 host = headers.get('Host')
         
-        # 🎯 PRIORITY #2: SNI (jika berbeda dari server)
-        if sni and sni != server:
-            print(f"🎯 Using SNI for lookup: {sni}")
-            return sni, "SNI"
+        print(f"🔍 Raw values - Server: {server}, SNI: {sni}, Host: {host}")
         
-        # 🎯 PRIORITY #3: Host (jika berbeda dari server)
-        if host and host != server:
-            print(f"🎯 Using Host for lookup: {host}")
-            return host, "Host"
+        # 🎯 PRIORITY #2: SNI (dengan domain cleaning)
+        if sni:
+            cleaned_sni = self.clean_domain_from_server(sni, server)
+            if cleaned_sni:  # Tidak None dan tidak kosong
+                print(f"🎯 Using cleaned SNI for lookup: {cleaned_sni}")
+                return cleaned_sni, "cleaned SNI"
+        
+        # 🎯 PRIORITY #3: Host (dengan domain cleaning)
+        if host:
+            cleaned_host = self.clean_domain_from_server(host, server)
+            if cleaned_host:  # Tidak None dan tidak kosong
+                print(f"🎯 Using cleaned Host for lookup: {cleaned_host}")
+                return cleaned_host, "cleaned Host"
         
         # JANGAN test server field - return None untuk fallback ke proxy method
-        print("⚠️  No valid lookup target found, will use proxy method")
+        print("⚠️  No valid lookup target found after cleaning, will use proxy method")
         return None, "proxy"
     
     def create_xray_config(self, account):
@@ -213,11 +243,87 @@ class RealGeolocationTester:
                 'method': 'failed'
             }
     
-    def _get_geo_data(self, target):
-        """Get geolocation data untuk target IP/domain"""
+    def _resolve_domain_to_best_ip(self, domain):
+        """Resolve domain ke IP dan pilih yang terbaik (avoid CDN)"""
+        try:
+            import socket
+            
+            # Get all IPs untuk domain
+            all_ips = []
+            try:
+                # Standard resolution
+                ip = socket.gethostbyname(domain)
+                all_ips.append(ip)
+            except:
+                pass
+            
+            # Try with different DNS (if dig available)
+            try:
+                result = subprocess.run(
+                    ['dig', '+short', domain], 
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.strip().split('\n'):
+                        line = line.strip()
+                        if line and self._is_valid_ip(line):
+                            all_ips.append(line)
+            except:
+                pass
+            
+            # Remove duplicates
+            unique_ips = list(set(all_ips))
+            
+            if not unique_ips:
+                return None
+            
+            # Jika cuma 1 IP, return langsung
+            if len(unique_ips) == 1:
+                return unique_ips[0]
+            
+            # Jika banyak IP, pilih yang terbaik (avoid CDN)
+            best_ip = None
+            best_score = -999
+            
+            for ip in unique_ips:
+                geo_data = self._get_geo_data_direct(ip)
+                if geo_data and geo_data.get('status') == 'success':
+                    provider = geo_data.get('isp', '').lower()
+                    score = 0
+                    
+                    # Penalize CDN providers
+                    if any(cdn in provider for cdn in ['cloudflare', 'amazon', 'aws', 'google']):
+                        score -= 50
+                    
+                    # Reward VPS providers
+                    if any(vps in provider for vps in ['digitalocean', 'linode', 'vultr', 'hetzner', 'ovh']):
+                        score += 30
+                    
+                    if score > best_score:
+                        best_score = score
+                        best_ip = ip
+            
+            print(f"🎯 Resolved {domain} to {len(unique_ips)} IPs, selected: {best_ip} (score: {best_score})")
+            return best_ip or unique_ips[0]  # Fallback ke IP pertama
+            
+        except Exception as e:
+            print(f"❌ Domain resolution error: {e}")
+            return None
+    
+    def _is_valid_ip(self, ip_str):
+        """Check if string is valid IP"""
+        try:
+            import socket
+            socket.inet_aton(ip_str)
+            return True
+        except:
+            return False
+    
+    def _get_geo_data_direct(self, ip):
+        """Get geolocation data untuk specific IP"""
         try:
             result = subprocess.run(
-                ['curl', '-s', f"{self.geo_api_url}/{target}"],
+                ['curl', '-s', f"{self.geo_api_url}/{ip}"],
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
@@ -225,6 +331,24 @@ class RealGeolocationTester:
         except Exception:
             pass
         return None
+    
+    def _get_geo_data(self, target):
+        """Enhanced geolocation dengan IP resolution untuk domain"""
+        # Jika target adalah IP, langsung query
+        if self._is_valid_ip(target):
+            print(f"🔍 Direct IP lookup: {target}")
+            return self._get_geo_data_direct(target)
+        
+        # Jika target adalah domain, resolve ke best IP dulu
+        print(f"🔍 Domain lookup: {target}")
+        best_ip = self._resolve_domain_to_best_ip(target)
+        
+        if best_ip:
+            print(f"🎯 Resolved domain {target} → {best_ip}")
+            return self._get_geo_data_direct(best_ip)
+        else:
+            print(f"❌ Failed to resolve domain: {target}")
+            return None
     
     def _test_with_proxy(self, account):
         """Test dengan actual VPN connection seperti metode user"""
