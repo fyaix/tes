@@ -221,7 +221,7 @@ def handle_start_testing():
                         if completed >= len(live_results):
                             break
                         
-                                                try:
+                        try:
                             data_to_send = {
                                 'results': [dict(res) for res in live_results],
                                 'total': len(live_results),
@@ -240,18 +240,15 @@ def handle_start_testing():
             # Start periodic updates
             update_thread = emit_periodic_updates()
             
-            # Simple approach: run tests
-            async def run_tests():
+            # Main async function to run tests
+            async def run_all_tests():
                 await test_all_accounts(session_data['all_accounts'], semaphore, live_results)
-            
-            # Run the testing
-            await run_tests()
-            
-            # Count successful accounts
-            successful_accounts = [res for res in live_results if res["Status"] == "●"]
-            
-            # Sort by priority
-            successful_accounts.sort(key=sort_priority)
+                
+                # Count successful accounts
+                successful_accounts = [res for res in live_results if res["Status"] == "●"]
+                
+                # Sort by priority
+                successful_accounts.sort(key=sort_priority)
                 
                 # Save test session to database
                 session_id = save_test_session({
@@ -289,7 +286,7 @@ def handle_start_testing():
                 })
             
             # Run the async test function
-            loop.run_until_complete(run_tests())
+            loop.run_until_complete(run_all_tests())
             
         except Exception as e:
             socketio.emit('testing_error', {'message': f'Testing failed: {str(e)}'})
