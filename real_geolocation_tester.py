@@ -31,41 +31,35 @@ class RealGeolocationTester:
     
     def clean_domain_from_server_for_testing(self, domain, server):
         """
-        Clean domain dari server part HANYA UNTUK TESTING
+        TES8 METHOD: Clean domain dari server part (METODE PALING BENAR)
         
         Examples:
-        1. server="example.com", domain="sg.example.com" → return "sg" (suffix)
-        2. server="quiz.int.vidio.com", domain="quiz.int.vidio.com.admin.site" → return "admin.site" (prefix)
-        3. server="example.com", domain="example.com" → return None (sama persis)
+        1. server="example.com", domain="sg.example.com" → return "sg" (extract prefix)
+        2. server="example.com", domain="example.com" → return None (sama persis, skip)
+        3. server="example.com", domain="different.net" → return "different.net" (berbeda total)
         
-        PENTING: Ini hanya untuk testing, original domain akan di-restore untuk config final
+        LOGIC TES8 (BENAR):
+        - Sama persis → Skip (return None)
+        - Ada suffix server → Extract prefix
+        - Berbeda total → Keep as-is
         """
         if not domain or not server:
             return domain
             
-        # Jika sama persis, tetap test (user request: jangan skip)
+        # TES8: Jika sama persis, skip testing (return None)
         if domain == server:
-            print(f"🔧 Testing: Same domain {domain} - will test as-is (user preference)")
-            return domain  # Return domain yang sama untuk ditest
+            print(f"🔧 TES8: Same domain {domain} - SKIP (user preference from tes8)")
+            return None
             
-        # Case 1: Domain mengandung server sebagai PREFIX (user's example)
-        # quiz.int.vidio.com.admin.ari-andika2.site → admin.ari-andika2.site
-        if domain.startswith(server + '.'):
-            # Extract suffix setelah server domain
-            suffix = domain[len(server + '.'):]
-            print(f"🔧 Testing: Clean {domain} → {suffix} (removed prefix {server})")
-            return suffix
-            
-        # Case 2: Domain mengandung server sebagai SUFFIX  
-        # sg.example.com → sg (original logic)
+        # TES8: Jika mengandung server sebagai suffix, extract prefix
         if domain.endswith('.' + server):
             # Extract prefix sebelum server domain
             prefix = domain[:-len('.' + server)]
-            print(f"🔧 Testing: Clean {domain} → {prefix} (removed suffix {server})")
+            print(f"🔧 TES8: Clean {domain} → {prefix} (removed .{server})")
             return prefix
         
-        # Jika berbeda total, return as-is  
-        print(f"🔧 Testing: Use {domain} as-is (different from server)")
+        # TES8: Jika berbeda total, keep as-is
+        print(f"🔧 TES8: Domain different from server: {domain} (keep as-is)")
         return domain
     
     def restore_original_domain_for_config(self, account):
@@ -94,15 +88,15 @@ class RealGeolocationTester:
     
     def get_lookup_target(self, account):
         """
-        USER'S METHOD: With domain cleaning untuk testing yang benar
+        TES8 METHOD: Metode testing paling benar (from branch tes8)
         
         Priority logic:
-        1. IP dari path (direct geolocation)
-        2. SNI dengan domain cleaning (remove server prefix/suffix)
-        3. Host dengan domain cleaning (remove server prefix/suffix)
+        1. IP dari path (direct geolocation - highest priority)
+        2. SNI dengan TES8 cleaning (skip sama, extract prefix, keep berbeda)
+        3. Host dengan TES8 cleaning (skip sama, extract prefix, keep berbeda)
         4. Fallback: actual VPN proxy method
         
-        TETAP PAKAI DOMAIN CLEANING agar pengetesannya benar dari host/sni
+        TES8 LOGIC: Domain sama di-skip, subdomain di-extract, berbeda total keep as-is
         """
         # Extract details in user's format
         address = account.get('server', '')
@@ -138,31 +132,19 @@ class RealGeolocationTester:
         
         print(f"🔍 Raw values - Address: {address}, SNI: {sni}, Host: {host}")
         
-        # 🎯 PRIORITY #2: SNI dengan domain cleaning untuk testing yang benar
+        # 🎯 PRIORITY #2: SNI dengan TES8 cleaning (metode paling benar)
         if sni:
             cleaned_sni = self.clean_domain_from_server_for_testing(sni, address)
-            if cleaned_sni:  # Ada hasil cleaning (termasuk domain sama yang tetap ditest)
-                # Jika sama dengan address tapi user minta tetap test (from cleaning function)
-                if cleaned_sni == address and sni == address:
-                    print(f"🎯 Using same SNI for testing: {cleaned_sni} (user preference: don't skip)")
-                    return cleaned_sni, "same SNI (tested)"
-                # Jika berbeda setelah cleaning
-                elif cleaned_sni != address:
-                    print(f"🎯 Using cleaned SNI for testing: {cleaned_sni} (original: {sni})")
-                    return cleaned_sni, "cleaned SNI"
+            if cleaned_sni:  # Not None (domain sama akan return None dan di-skip)
+                print(f"🎯 TES8: Using cleaned SNI for lookup: {cleaned_sni}")
+                return cleaned_sni, "cleaned SNI"
         
-        # 🎯 PRIORITY #3: Host dengan domain cleaning untuk testing yang benar
+        # 🎯 PRIORITY #3: Host dengan TES8 cleaning (metode paling benar)
         if host:
             cleaned_host = self.clean_domain_from_server_for_testing(host, address)
-            if cleaned_host:  # Ada hasil cleaning (termasuk domain sama yang tetap ditest)
-                # Jika sama dengan address tapi user minta tetap test (from cleaning function)
-                if cleaned_host == address and host == address:
-                    print(f"🎯 Using same Host for testing: {cleaned_host} (user preference: don't skip)")
-                    return cleaned_host, "same Host (tested)"
-                # Jika berbeda setelah cleaning
-                elif cleaned_host != address:
-                    print(f"🎯 Using cleaned Host for testing: {cleaned_host} (original: {host})")
-                    return cleaned_host, "cleaned Host"
+            if cleaned_host:  # Not None (domain sama akan return None dan di-skip)
+                print(f"🎯 TES8: Using cleaned Host for lookup: {cleaned_host}")
+                return cleaned_host, "cleaned Host"
         
         # 🎯 FALLBACK: Actual VPN proxy method
         print("🎯 Using actual VPN proxy method (no direct lookup target)")
@@ -340,7 +322,7 @@ class RealGeolocationTester:
             }
     
     def _resolve_domain_to_best_ip(self, domain):
-        """Resolve domain ke IP dan pilih yang terbaik (avoid CDN)"""
+        """TES8 METHOD: Resolve domain ke IP dan pilih yang terbaik (avoid CDN)"""
         try:
             import socket
             
@@ -353,7 +335,7 @@ class RealGeolocationTester:
             except:
                 pass
             
-            # Try with different DNS (if dig available)
+            # Try with different DNS (if dig available) - TES8 enhancement
             try:
                 result = subprocess.run(
                     ['dig', '+short', domain], 
@@ -377,7 +359,7 @@ class RealGeolocationTester:
             if len(unique_ips) == 1:
                 return unique_ips[0]
             
-            # Jika banyak IP, pilih yang terbaik (avoid CDN)
+            # TES8 ENHANCEMENT: Smart IP selection dengan CDN avoidance scoring
             best_ip = None
             best_score = -999
             
@@ -387,23 +369,25 @@ class RealGeolocationTester:
                     provider = geo_data.get('isp', '').lower()
                     score = 0
                     
-                    # Penalize CDN providers
-                    if any(cdn in provider for cdn in ['cloudflare', 'amazon', 'aws', 'google']):
+                    # TES8: Penalize CDN providers (avoid false geolocation)
+                    if any(cdn in provider for cdn in ['cloudflare', 'amazon', 'aws', 'google', 'microsoft']):
                         score -= 50
+                        print(f"🔍 TES8: CDN detected - {ip} ({provider}) score: {score}")
                     
-                    # Reward VPS providers
+                    # TES8: Reward VPS providers (real server locations)
                     if any(vps in provider for vps in ['digitalocean', 'linode', 'vultr', 'hetzner', 'ovh']):
                         score += 30
+                        print(f"🔍 TES8: VPS detected - {ip} ({provider}) score: {score}")
                     
                     if score > best_score:
                         best_score = score
                         best_ip = ip
             
-            print(f"🎯 Resolved {domain} to {len(unique_ips)} IPs, selected: {best_ip} (score: {best_score})")
+            print(f"🎯 TES8: Resolved {domain} to {len(unique_ips)} IPs, selected: {best_ip} (score: {best_score})")
             return best_ip or unique_ips[0]  # Fallback ke IP pertama
             
         except Exception as e:
-            print(f"❌ Domain resolution error: {e}")
+            print(f"❌ TES8: Domain resolution error: {e}")
             return None
     
     def _is_valid_ip(self, ip_str):
