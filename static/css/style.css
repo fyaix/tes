@@ -1388,6 +1388,34 @@ textarea:focus {
   min-height: auto;
 }
 
+.info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 4px solid var(--info);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-lg);
+}
+
+.info-icon {
+  font-size: 1.2rem;
+  color: var(--info);
+  line-height: 1;
+}
+
+.info-text {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.info-text strong {
+  color: var(--info);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .button-group {

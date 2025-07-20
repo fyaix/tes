@@ -184,18 +184,18 @@
                 <!-- Server Replacement -->
                 <div class="card">
                     <div class="card-header">
-                        <h3>🔄 Server Replacement (Config Only)</h3>
+                        <h3>🔄 Custom Servers (Auto-Apply)</h3>
                         <span class="badge" id="server-replace-status">Ready</span>
                     </div>
                     <div class="card-content">
                         <div class="form-group">
-                            <label for="replacement-servers">Custom Server Addresses for Final Config</label>
+                            <label for="replacement-servers">Custom Server Addresses (Auto-Apply)</label>
                             <textarea 
                                 id="replacement-servers" 
                                 placeholder="Enter custom server addresses (one per line or comma separated):&#10;custom1.example.com&#10;custom2.example.com&#10;or: custom1.com, custom2.com, custom3.com"
                                 rows="4"
                             ></textarea>
-                            <small>⚠️ These servers will be applied to final config AFTER testing (not during testing)</small>
+                            <small>💡 These servers will be automatically applied when testing completes. Leave empty to use original servers.</small>
                         </div>
                         <div class="replacement-stats" id="replacement-stats" style="display: none;">
                             <div class="stats-row">
@@ -213,29 +213,17 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="button-group">
-                            <button class="btn btn-info" id="preview-replacement-btn">
-                                <span class="btn-text">📋 Preview Distribution</span>
-                                <div class="btn-loader hidden"></div>
-                            </button>
-                            <button class="btn btn-warning" id="apply-replacement-btn" disabled>
-                                <span class="btn-text">💾 Store for Config</span>
-                                <div class="btn-loader hidden"></div>
-                            </button>
+                        <div class="info-box">
+                            <div class="info-icon">ℹ️</div>
+                            <div class="info-text">
+                                <strong>Auto-Apply:</strong> Custom servers will be automatically applied when testing completes. 
+                                If multiple servers are provided, they will be randomly distributed across successful accounts.
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Replacement Preview -->
-                <div class="card" id="replacement-preview" style="display: none;">
-                    <div class="card-header">
-                        <h3>📊 Distribution Preview</h3>
-                        <button class="btn btn-sm btn-secondary" id="close-preview-btn">✕</button>
-                    </div>
-                    <div class="card-content">
-                        <div id="distribution-preview"></div>
-                    </div>
-                </div>
+
 
                 <!-- Quick Stats -->
                 <div class="card" id="quick-stats" style="display: none;">

@@ -265,10 +265,10 @@ def handle_start_testing():
                 # Auto-generate configuration if we have successful accounts
                 if successful_accounts:
                     try:
-                        # Use custom servers jika ada
-                        custom_servers = session_data.get('custom_servers')
-                        print(f"🔄 Auto-generate: Using custom servers = {custom_servers}")
-                        final_accounts_to_inject = build_final_accounts(successful_accounts, custom_servers)
+                        # DEPRECATED: session_data custom_servers tidak digunakan lagi
+                        # Sekarang custom servers akan diambil dari frontend saat download
+                        print(f"🔄 Auto-generate: Using original servers (custom servers will be applied on download)")
+                        final_accounts_to_inject = build_final_accounts(successful_accounts)
                         fresh_template_data = load_template(TEMPLATE_FILE)
                         final_config_data = inject_outbounds_to_template(fresh_template_data, final_accounts_to_inject)
                         final_config_str = json.dumps(final_config_data, indent=2, ensure_ascii=False)
@@ -330,6 +330,9 @@ def generate_config():
         return jsonify({'success': False, 'message': 'No test results available'})
     
     try:
+        data = request.json or {}
+        custom_servers_input = data.get('custom_servers', '').strip()
+        
         # Get successful accounts
         successful_accounts = [res for res in session_data['test_results'] if res["Status"] == "●"]
         
@@ -339,8 +342,15 @@ def generate_config():
         # Sort by priority
         successful_accounts.sort(key=sort_priority)
         
+        # Parse custom servers dari frontend
+        custom_servers = None
+        if custom_servers_input:
+            custom_servers = parse_servers_input(custom_servers_input)
+            print(f"🔄 Generate-config: Using custom servers from frontend = {custom_servers}")
+        else:
+            print(f"🔄 Generate-config: No custom servers, using original servers")
+        
         # Build final accounts dengan optional server replacement
-        custom_servers = session_data.get('custom_servers')
         final_accounts_to_inject = build_final_accounts(successful_accounts, custom_servers)
         
         # Load fresh template
@@ -354,8 +364,10 @@ def generate_config():
         
         return jsonify({
             'success': True,
-            'message': f'Generated config with {len(final_accounts_to_inject)} accounts',
-            'account_count': len(final_accounts_to_inject)
+            'message': f'Generated config with {len(final_accounts_to_inject)} accounts' + 
+                      (f' using {len(custom_servers)} custom servers' if custom_servers else ''),
+            'account_count': len(final_accounts_to_inject),
+            'custom_servers_used': len(custom_servers) if custom_servers else 0
         })
     
     except Exception as e:

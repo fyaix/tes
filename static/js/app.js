@@ -147,12 +147,7 @@ function setupFormHandlers() {
     // Add links and test
     document.getElementById('add-and-test-btn').addEventListener('click', addLinksAndTest);
     
-    // Server replacement handlers
-    document.getElementById('preview-replacement-btn').addEventListener('click', previewServerReplacement);
-    document.getElementById('apply-replacement-btn').addEventListener('click', applyServerReplacement);
-    document.getElementById('close-preview-btn').addEventListener('click', closeReplacementPreview);
-    
-    // Input change handler for replacement stats
+    // Input change handler for replacement stats (auto-update)
     document.getElementById('replacement-servers').addEventListener('input', updateReplacementStats);
     
     // Download configuration
@@ -676,15 +671,49 @@ function handleTestingComplete(data) {
     }
 }
 
-// Handle auto-generated configuration
-function handleConfigGenerated(data) {
+// Handle auto-generated configuration - dengan custom servers auto-apply
+async function handleConfigGenerated(data) {
     if (data.success) {
-        showToast('Config Generated', `Configuration auto-generated with ${data.account_count} accounts`, 'success');
+        // Auto-apply custom servers jika ada
+        const customServers = getCustomServersForConfig();
+        
+        if (customServers) {
+            console.log('Auto-applying custom servers:', customServers);
+            updateReplacementStatus('Auto-applying...');
+            
+            try {
+                // Generate config dengan custom servers
+                const response = await fetch('/api/generate-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ custom_servers: customServers }),
+                });
+                
+                const configData = await response.json();
+                
+                if (configData.success) {
+                    updateReplacementStatus(`Applied ${configData.custom_servers_used} servers`);
+                    showToast('Config with Custom Servers', 
+                        `Configuration generated with ${configData.account_count} accounts using ${configData.custom_servers_used} custom servers`, 
+                        'success');
+                } else {
+                    updateReplacementStatus('Error');
+                    console.error('Failed to apply custom servers:', configData.message);
+                }
+            } catch (error) {
+                updateReplacementStatus('Error');
+                console.error('Error applying custom servers:', error);
+            }
+        } else {
+            showToast('Config Generated', `Configuration auto-generated with ${data.account_count} accounts`, 'success');
+        }
         
         // Update export section
         document.getElementById('config-account-count').textContent = data.account_count;
         document.getElementById('config-timestamp').textContent = new Date().toLocaleTimeString();
-        document.getElementById('config-badge').textContent = 'Auto-Generated';
+        document.getElementById('config-badge').textContent = customServers ? 'Auto-Generated (Custom Servers)' : 'Auto-Generated';
         
         // Enable GitHub upload if configured
         if (isGitHubConfigured) {
@@ -1118,32 +1147,27 @@ async function loadParsedAccounts() {
 function updateReplacementStats() {
     const serversInput = document.getElementById('replacement-servers').value.trim();
     const replacementStats = document.getElementById('replacement-stats');
+    const statusBadge = document.getElementById('server-replace-status');
     
     if (!serversInput) {
         replacementStats.style.display = 'none';
-        document.getElementById('apply-replacement-btn').disabled = true;
+        statusBadge.textContent = 'Ready';
+        statusBadge.className = 'badge';
         return;
     }
     
     // Parse servers (comma or line separated)
     const servers = parseServerInput(serversInput);
-    const totalAccounts = parsedVpnAccounts.length;
-    
-    if (totalAccounts === 0) {
-        showToast('No VPN Accounts', 'Please add VPN links first before server replacement', 'warning');
-        return;
-    }
-    
-    // Calculate distribution
-    const accountsPerServer = Math.ceil(totalAccounts / servers.length);
     
     // Update stats display
-    document.getElementById('total-vpn-accounts').textContent = totalAccounts;
+    document.getElementById('total-vpn-accounts').textContent = parsedVpnAccounts.length || 0;
     document.getElementById('total-servers').textContent = servers.length;
-    document.getElementById('accounts-per-server').textContent = `~${accountsPerServer}`;
+    document.getElementById('accounts-per-server').textContent = parsedVpnAccounts.length ? 
+        `~${Math.ceil(parsedVpnAccounts.length / servers.length)}` : '0';
     
     replacementStats.style.display = 'block';
-    document.getElementById('apply-replacement-btn').disabled = false;
+    statusBadge.textContent = `${servers.length} servers ready`;
+    statusBadge.className = 'badge badge-info';
 }
 
 // Parse server input (comma or line separated)
@@ -1161,158 +1185,10 @@ function parseServerInput(input) {
     return servers;
 }
 
-// Preview server replacement distribution
-async function previewServerReplacement() {
-    const btn = document.getElementById('preview-replacement-btn');
-    const loader = btn.querySelector('.btn-loader');
-    const text = btn.querySelector('.btn-text');
-    
-    // Show loading
-    loader.classList.remove('hidden');
-    text.textContent = '📋 Generating Preview...';
-    btn.disabled = true;
-    
-    try {
-        const serversInput = document.getElementById('replacement-servers').value.trim();
-        
-        if (!serversInput) {
-            showToast('Input Required', 'Please enter new server addresses', 'warning');
-            return;
-        }
-        
-        // Use backend API for preview
-        const response = await fetch('/api/preview-server-replacement', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ servers: serversInput }),
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            displayDistributionPreview(data.distribution);
-            showToast('Preview Generated', `Distribution preview generated for ${data.total_servers} servers`, 'success');
-        } else {
-            showToast('Preview Error', data.message, 'error');
-        }
-        
-    } catch (error) {
-        console.error('Error generating preview:', error);
-        showToast('Preview Error', 'Failed to generate distribution preview', 'error');
-    } finally {
-        // Reset button
-        loader.classList.add('hidden');
-        text.textContent = '📋 Preview Distribution';
-        btn.disabled = false;
-    }
-}
-
-// Note: generateServerDistribution moved to backend for consistency
-
-// Display distribution preview
-function displayDistributionPreview(distribution) {
-    const previewCard = document.getElementById('replacement-preview');
-    const previewContent = document.getElementById('distribution-preview');
-    
-    let html = '';
-    
-    Object.entries(distribution).forEach(([server, accounts]) => {
-        html += `
-            <div class="distribution-group">
-                <div class="distribution-header">
-                    <span class="distribution-server">${server}</span>
-                    <span class="distribution-count">${accounts.length} accounts</span>
-                </div>
-                <div class="distribution-accounts">
-        `;
-        
-        accounts.forEach(account => {
-            const accountName = account.name || account.server || 'Unknown';
-            html += `
-                <div class="distribution-account">
-                    ${accountName}
-                </div>
-            `;
-        });
-        
-        html += `
-                </div>
-            </div>
-        `;
-    });
-    
-    previewContent.innerHTML = html;
-    previewCard.style.display = 'block';
-}
-
-// Close replacement preview
-function closeReplacementPreview() {
-    document.getElementById('replacement-preview').style.display = 'none';
-}
-
-// Apply server replacement
-async function applyServerReplacement() {
-    const btn = document.getElementById('apply-replacement-btn');
-    const loader = btn.querySelector('.btn-loader');
-    const text = btn.querySelector('.btn-text');
-    
-    // Show loading
-    loader.classList.remove('hidden');
-    text.textContent = '💾 Storing Servers...';
-    btn.disabled = true;
-    
-    try {
-        const serversInput = document.getElementById('replacement-servers').value.trim();
-        
-        if (!serversInput) {
-            showToast('Input Required', 'Please enter new server addresses', 'warning');
-            return;
-        }
-        
-        // Use backend API for replacement
-        const response = await fetch('/api/apply-server-replacement', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ servers: serversInput }),
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // Update UI
-            updateReplacementStatus(`Stored ${data.servers_stored} servers`);
-            
-            // Close preview
-            closeReplacementPreview();
-            
-            // Clear input
-            document.getElementById('replacement-servers').value = '';
-            updateReplacementStats();
-            
-            showToast('Servers Stored', data.message, 'info');
-            
-            // Show info about when servers will be applied
-            setTimeout(() => {
-                showToast('Info', 'Custom servers will be applied when generating final config after testing', 'info');
-            }, 2000);
-            
-        } else {
-            showToast('Storage Error', data.message, 'error');
-        }
-        
-    } catch (error) {
-        console.error('Error applying replacement:', error);
-        showToast('Replacement Error', 'Failed to apply server replacement', 'error');
-    } finally {
-        // Reset button
-        loader.classList.add('hidden');
-        text.textContent = '💾 Store for Config';
-        btn.disabled = false;
-    }
+// Auto-apply custom servers saat config generation
+function getCustomServersForConfig() {
+    const serversInput = document.getElementById('replacement-servers').value.trim();
+    return serversInput || '';
 }
 
 // Update replacement status badge
