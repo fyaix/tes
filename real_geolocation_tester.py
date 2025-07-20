@@ -94,11 +94,13 @@ class RealGeolocationTester:
     
     def get_lookup_target(self, account):
         """
-        Enhanced user's priority logic dengan domain cleaning:
-        1. IP dari path (highest priority)
-        2. SNI (cleaned dari server domain jika perlu)
-        3. Host (cleaned dari server domain jika perlu)  
-        4. JANGAN PERNAH test server field
+        USER PREFERENCE: Use actual VPN proxy method (lebih akurat)
+        
+        Priority logic:
+        1. IP dari path (direct geolocation - tetap prioritas tinggi)
+        2. Semua lainnya → actual VPN proxy method (user preference)
+        
+        JANGAN PERNAH test server field
         """
         server = account.get('server', '')
         
@@ -133,23 +135,9 @@ class RealGeolocationTester:
         
         print(f"🔍 Raw values - Server: {server}, SNI: {sni}, Host: {host}")
         
-        # 🎯 PRIORITY #2: SNI (dengan domain cleaning untuk testing)
-        if sni:
-            cleaned_sni = self.clean_domain_from_server_for_testing(sni, server)
-            if cleaned_sni:  # Tidak None dan tidak kosong
-                print(f"🎯 Using cleaned SNI for testing: {cleaned_sni} (original: {sni})")
-                return cleaned_sni, "cleaned SNI"
-        
-        # 🎯 PRIORITY #3: Host (dengan domain cleaning untuk testing)
-        if host:
-            cleaned_host = self.clean_domain_from_server_for_testing(host, server)
-            if cleaned_host:  # Tidak None dan tidak kosong
-                print(f"🎯 Using cleaned Host for testing: {cleaned_host} (original: {host})")
-                return cleaned_host, "cleaned Host"
-        
-        # JANGAN PERNAH test server field - return None untuk fallback ke proxy method
-        print("⚠️  No valid lookup target found after cleaning, will use actual VPN proxy method")
-        return None, "actual VPN proxy"
+        # 🎯 USER PREFERENCE: Pakai actual VPN proxy method saja (lebih akurat)
+        print("🎯 Using actual VPN proxy method (user preference: test actuall vpn lebih akurat)")
+        return None, "actual VPN proxy method"
     
     def create_xray_config(self, account):
         """Create Xray config untuk testing - adapted dari user's method"""
