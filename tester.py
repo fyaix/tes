@@ -94,6 +94,9 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                     "ICMP": "✔",
                     **geo_info
                 })
+                # Update live_results
+                if live_results is not None:
+                    live_results[index].update(result)
                 return result
 
             if attempt < MAX_RETRIES - 1:
@@ -122,6 +125,9 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                     **stats,
                     **geo_info
                 })
+                # Update live_results
+                if live_results is not None:
+                    live_results[index].update(result)
                 return result
 
             if attempt < MAX_RETRIES - 1:
@@ -134,4 +140,7 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
 
     result['Status'] = '✖'
     result['Retry'] = MAX_RETRIES
+    # Update live_results for failed case
+    if live_results is not None:
+        live_results[index].update(result)
     return result

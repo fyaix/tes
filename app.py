@@ -172,13 +172,16 @@ def handle_start_testing():
         asyncio.set_event_loop(loop)
         
         try:
-            # Initialize test results
-            live_results = [
-                {
+            # Initialize test results with better structure
+            live_results = []
+            for i, acc in enumerate(session_data['all_accounts']):
+                result = {
                     "index": i,
-                    "OriginalTag": acc["tag"],
+                    "OriginalTag": acc.get("tag", f"Account-{i+1}"),
                     "OriginalAccount": acc,
-                    "VpnType": acc.get("type", "-"),
+                    "VpnType": acc.get("type", "unknown"),
+                    "type": acc.get("type", "unknown"),  # Backup field
+                    "server": acc.get("server", "-"),   # For tested IP fallback
                     "Country": "❓",
                     "Provider": "-",
                     "Tested IP": "-",
@@ -186,30 +189,69 @@ def handle_start_testing():
                     "Jitter": -1,
                     "ICMP": "N/A",
                     "Status": "WAIT",
+                    "Retry": 0
                 }
-                for i, acc in enumerate(session_data['all_accounts'])
-            ]
+                live_results.append(result)
             
             session_data['test_results'] = live_results
             
             # Emit initial results
-            socketio.emit('testing_update', {
-                'results': live_results,
+            initial_data = {
+                'results': [dict(res) for res in live_results],
                 'total': len(live_results),
                 'completed': 0
-            })
+            }
+            print(f"Emitting initial data: {len(live_results)} accounts")
+            socketio.emit('testing_update', initial_data)
             
             # Create semaphore and run tests
             semaphore = asyncio.Semaphore(MAX_CONCURRENT_TESTS)
             
-            async def test_with_updates():
+            # Create a background task to emit updates
+            def emit_periodic_updates():
+                import time
+                import threading
+                
+                def update_loop():
+                    while True:
+                        time.sleep(1)  # Update every second
+                        completed = len([res for res in live_results if res["Status"] != "WAIT" and not res["Status"].startswith("Testing") and not res["Status"].startswith("Retry")])
+                        
+                        # Check if testing is done
+                        if completed >= len(live_results):
+                            break
+                        
+                                                try:
+                            data_to_send = {
+                                'results': [dict(res) for res in live_results],
+                                'total': len(live_results),
+                                'completed': completed
+                            }
+                            print(f"Emitting update: {completed}/{len(live_results)} completed")
+                            socketio.emit('testing_update', data_to_send)
+                        except Exception as e:
+                            print(f"Update emit error: {e}")
+                            break
+                
+                thread = threading.Thread(target=update_loop, daemon=True)
+                thread.start()
+                return thread
+            
+            # Start periodic updates
+            update_thread = emit_periodic_updates()
+            
+            # Simple approach: run tests
+            async def run_tests():
                 await test_all_accounts(session_data['all_accounts'], semaphore, live_results)
-                
-                # Count successful accounts
-                successful_accounts = [res for res in live_results if res["Status"] == "●"]
-                
-                # Sort by priority
-                successful_accounts.sort(key=sort_priority)
+            
+            # Run the testing
+            await run_tests()
+            
+            # Count successful accounts
+            successful_accounts = [res for res in live_results if res["Status"] == "●"]
+            
+            # Sort by priority
+            successful_accounts.sort(key=sort_priority)
                 
                 # Save test session to database
                 session_id = save_test_session({
@@ -247,7 +289,7 @@ def handle_start_testing():
                 })
             
             # Run the async test function
-            loop.run_until_complete(test_with_updates())
+            loop.run_until_complete(run_tests())
             
         except Exception as e:
             socketio.emit('testing_error', {'message': f'Testing failed: {str(e)}'})

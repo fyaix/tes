@@ -65,10 +65,12 @@ function initializeSocket() {
     });
     
     socket.on('testing_update', function(data) {
+        console.log('Received testing_update:', data);
         updateTestingProgress(data);
     });
     
     socket.on('testing_complete', function(data) {
+        console.log('Received testing_complete:', data);
         handleTestingComplete(data);
     });
     
@@ -574,6 +576,34 @@ function showTestingProgress() {
     // Reset progress
     updateProgressBar(0);
     updateTestStats(0, 0, 0);
+    
+    // Initialize table with empty rows to show structure
+    initializeTestingTable();
+}
+
+// Initialize testing table
+function initializeTestingTable() {
+    const tableBody = document.getElementById('testing-table-body');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '';
+    
+    // Add placeholder rows
+    for (let i = 0; i < totalAccounts; i++) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${i + 1}</td>
+            <td class="type-cell">-</td>
+            <td>❓</td>
+            <td>-</td>
+            <td>-</td>
+            <td class="latency-cell">—</td>
+            <td class="latency-cell">—</td>
+            <td class="status-cell">N/A</td>
+            <td class="status-cell status-waiting">⏳</td>
+        `;
+        tableBody.appendChild(row);
+    }
 }
 
 // Hide testing progress UI
@@ -583,8 +613,15 @@ function hideTestingProgress() {
 
 // Update testing progress
 function updateTestingProgress(data) {
+    console.log('Testing progress update:', data); // Debug log
+    
+    if (!data || !data.results) {
+        console.error('Invalid data received:', data);
+        return;
+    }
+    
     const completed = data.results.filter(r => r.Status !== 'WAIT' && !r.Status.startsWith('Testing') && !r.Status.startsWith('Retry')).length;
-    const total = data.total;
+    const total = data.total || data.results.length;
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     
     updateProgressBar(percentage);
@@ -600,7 +637,7 @@ function updateTestingProgress(data) {
     
     updateTestStats(successful, failed, testing);
     
-    // Update live results
+    // Update live results table
     updateLiveResults(data.results);
     
     updateStatus(`Testing... ${completed}/${total}`, 'info');
@@ -661,7 +698,17 @@ function updateTestStats(successful, failed, testing) {
 // Update live results display
 function updateLiveResults(results) {
     const tableBody = document.getElementById('testing-table-body');
+    if (!tableBody) {
+        console.error('Table body not found');
+        return;
+    }
+    
     tableBody.innerHTML = '';
+    
+    if (!results || !Array.isArray(results)) {
+        console.error('Invalid results data:', results);
+        return;
+    }
     
     results.forEach((result, index) => {
         const row = createTestingTableRow(result, index);
@@ -673,20 +720,32 @@ function updateLiveResults(results) {
 function createTestingTableRow(result, index) {
     const row = document.createElement('tr');
     
-    const statusText = getStatusText(result.Status);
-    const statusClass = getStatusClass(result.Status);
-    const latencyText = result.Latency !== -1 ? `${result.Latency}ms` : '—';
-    const jitterText = result.Jitter !== -1 ? `${result.Jitter}ms` : '—';
+    // Make sure we have valid data
+    const safeResult = {
+        Status: result.Status || 'WAIT',
+        VpnType: result.VpnType || result.type || 'N/A',
+        Country: result.Country || '❓',
+        Provider: result.Provider || '-',
+        'Tested IP': result['Tested IP'] || result.server || '-',
+        Latency: result.Latency || -1,
+        Jitter: result.Jitter || -1,
+        ICMP: result.ICMP || 'N/A'
+    };
+    
+    const statusText = getStatusText(safeResult.Status);
+    const statusClass = getStatusClass(safeResult.Status);
+    const latencyText = safeResult.Latency !== -1 ? `${safeResult.Latency}ms` : '—';
+    const jitterText = safeResult.Jitter !== -1 ? `${safeResult.Jitter}ms` : '—';
     
     row.innerHTML = `
         <td>${index + 1}</td>
-        <td class="type-cell">${result.VpnType}</td>
-        <td>${result.Country}</td>
-        <td>${result.Provider}</td>
-        <td>${result['Tested IP']}</td>
+        <td class="type-cell">${safeResult.VpnType}</td>
+        <td>${safeResult.Country}</td>
+        <td>${safeResult.Provider}</td>
+        <td>${safeResult['Tested IP']}</td>
         <td class="latency-cell">${latencyText}</td>
         <td class="latency-cell">${jitterText}</td>
-        <td class="status-cell">${result.ICMP}</td>
+        <td class="status-cell">${safeResult.ICMP}</td>
         <td class="status-cell ${statusClass}">${statusText}</td>
     `;
     
@@ -962,6 +1021,62 @@ function throttle(func, limit) {
         }
     };
 }
+
+// Manual test function untuk debug
+function testTableDisplay() {
+    console.log('Testing table display with sample data...');
+    
+    const sampleData = {
+        results: [
+            {
+                index: 0,
+                VpnType: 'vless',
+                type: 'vless',
+                Country: '🇸🇬 Singapore',
+                Provider: 'CloudFlare',
+                'Tested IP': '1.1.1.1',
+                server: 'demo.example.com',
+                Latency: 25,
+                Jitter: 2,
+                ICMP: '✔',
+                Status: '●'
+            },
+            {
+                index: 1,
+                VpnType: 'trojan',
+                type: 'trojan',
+                Country: '🇯🇵 Japan',
+                Provider: 'Tokyo Server',
+                'Tested IP': '8.8.8.8',
+                server: 'demo2.example.com',
+                Latency: 45,
+                Jitter: 5,
+                ICMP: '✔',
+                Status: 'Testing...'
+            },
+            {
+                index: 2,
+                VpnType: 'shadowsocks',
+                type: 'shadowsocks',
+                Country: '❓',
+                Provider: '-',
+                'Tested IP': '-',
+                server: 'demo3.example.com',
+                Latency: -1,
+                Jitter: -1,
+                ICMP: 'N/A',
+                Status: 'WAIT'
+            }
+        ],
+        total: 3,
+        completed: 1
+    };
+    
+    updateTestingProgress(sampleData);
+}
+
+// Make it globally accessible for testing
+window.testTableDisplay = testTableDisplay;
 
 // Add CSS for dynamic elements
 const dynamicStyles = document.createElement('style');
