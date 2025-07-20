@@ -31,17 +31,19 @@ class RealGeolocationTester:
     
     def clean_domain_from_server_for_testing(self, domain, server):
         """
-        MODIFIED TES8 METHOD: TES8 + user latest request (don't skip same domains)
+        MODIFIED TES8 METHOD: Complete domain cleaning + user latest request
         
         Examples:
-        1. server="example.com", domain="sg.example.com" → return "sg" (extract prefix)
-        2. server="example.com", domain="example.com" → return "example.com" (sama persis, TETAP TEST)
-        3. server="example.com", domain="different.net" → return "different.net" (berbeda total)
+        1. server="example.com", domain="sg.example.com" → return "sg" (suffix cleaning)
+        2. server="quiz.int.vidio.com", domain="quiz.int.vidio.com.admin.site" → return "admin.site" (prefix cleaning)
+        3. server="example.com", domain="example.com" → return "example.com" (sama persis, TETAP TEST)
+        4. server="example.com", domain="different.net" → return "different.net" (berbeda total)
         
         MODIFIED TES8 LOGIC:
         - Sama persis → TETAP TEST (return domain) - USER REQUEST
-        - Ada suffix server → Extract prefix (TES8 method)
-        - Berbeda total → Keep as-is (TES8 method)
+        - Ada prefix server → Extract suffix (user's example case)
+        - Ada suffix server → Extract prefix (classic case)
+        - Berbeda total → Keep as-is
         """
         if not domain or not server:
             return domain
@@ -51,15 +53,24 @@ class RealGeolocationTester:
             print(f"🔧 MODIFIED TES8: Same domain {domain} - WILL TEST (user preference: don't skip)")
             return domain
             
-        # TES8: Jika mengandung server sebagai suffix, extract prefix
+        # MODIFIED TES8: Handle PREFIX case (user's example)
+        # quiz.int.vidio.com.admin.ari-andika2.site → admin.ari-andika2.site
+        if domain.startswith(server + '.'):
+            # Extract suffix setelah server domain
+            suffix = domain[len(server + '.'):]
+            print(f"🔧 MODIFIED TES8: Clean {domain} → {suffix} (removed prefix {server})")
+            return suffix
+            
+        # MODIFIED TES8: Handle SUFFIX case (classic case)
+        # sg.example.com → sg
         if domain.endswith('.' + server):
             # Extract prefix sebelum server domain
             prefix = domain[:-len('.' + server)]
-            print(f"🔧 TES8: Clean {domain} → {prefix} (removed .{server})")
+            print(f"🔧 MODIFIED TES8: Clean {domain} → {prefix} (removed suffix {server})")
             return prefix
         
-        # TES8: Jika berbeda total, keep as-is
-        print(f"🔧 TES8: Domain different from server: {domain} (keep as-is)")
+        # MODIFIED TES8: Jika berbeda total, keep as-is
+        print(f"🔧 MODIFIED TES8: Domain different from server: {domain} (keep as-is)")
         return domain
     
     def restore_original_domain_for_config(self, account):
