@@ -1,6 +1,6 @@
 # VortexVPN Manager - Quick Demo Guide
 
-## Quick Start (2 minutes)
+## Quick Start (30 seconds!)
 
 ### 1. Start the Application
 ```bash
@@ -13,14 +13,10 @@ python app.py
 
 The web interface will open automatically at `http://localhost:5000`
 
-### 2. Demo Flow
+### 2. Super Simple Demo Flow
 
-#### Step 1: Setup (Optional)
-- Skip GitHub setup for demo
-- Select "Local Template" and click "Load Configuration"
-
-#### Step 2: Add Demo VPN Links
-Go to **Accounts** section and paste these demo links:
+#### Step 1: Just Paste & Test!
+Go to **Add VPN Links & Test** section and paste demo links:
 
 ```
 vless://demo-uuid@demo.example.com:443?type=ws&path=/demo&host=demo.example.com&security=tls#Demo%20VLESS
@@ -28,22 +24,18 @@ trojan://demo-password@demo.example.com:443?type=ws&path=/trojan&host=demo.examp
 ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpkZW1vLXBhc3N3b3Jk@demo.example.com:443?plugin=v2ray-plugin&plugin-opts=tls;host%3Ddemo.example.com;path%3D/ss#Demo%20Shadowsocks
 ```
 
-Click **Parse Links** to add them.
+Click **🚀 Add Links & Start Testing** - that's it!
 
-#### Step 3: Test Connections
-- Go to **Testing** section
-- Click **Start Testing** to see the live testing interface
-- Watch the real-time progress updates
+#### Step 2: Watch the Magic ✨
+- Automatically switches to **Live Testing** section
+- See real-time table updates like the original CLI
+- Watch progress bars and live statistics
+- **Configuration auto-generates** when testing completes!
 
-#### Step 4: View Results
-- Navigate to **Results** section
-- See summary statistics and detailed results
-- Try filtering by different statuses
-
-#### Step 5: Export Configuration
-- Go to **Export** section
-- Click **Generate Config**
-- Download the generated configuration file
+#### Step 3: Download Ready Config
+- Go to **Download & Upload** section  
+- Your config is already generated and ready!
+- Click **⬇️ Download VPN Config** or **⬆️ Upload to GitHub**
 
 ## Mobile Demo (Android)
 

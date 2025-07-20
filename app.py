@@ -18,6 +18,7 @@ from core import (
 )
 from extractor import extract_accounts_from_config
 from converter import parse_link, inject_outbounds_to_template
+from database import save_github_config, get_github_config, save_test_session, get_latest_test_session
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -48,10 +49,26 @@ def setup_github():
     repo = data.get('repo')
     
     if token and owner and repo:
+        # Save to local database
+        save_github_config(token, owner, repo)
         session_data['github_client'] = GitHubClient(token, owner, repo)
-        return jsonify({'success': True, 'message': 'GitHub configured successfully'})
+        return jsonify({'success': True, 'message': 'GitHub configured and saved locally'})
     else:
         return jsonify({'success': False, 'message': 'All fields are required'})
+
+@app.route('/api/get-github-config')
+def get_github_config_api():
+    config = get_github_config()
+    if config:
+        # Also set up the client if config exists
+        session_data['github_client'] = GitHubClient(config['token'], config['owner'], config['repo'])
+        return jsonify({'success': True, 'config': {
+            'owner': config['owner'],
+            'repo': config['repo'],
+            'configured': True
+        }})
+    else:
+        return jsonify({'success': False, 'configured': False})
 
 @app.route('/api/list-github-files')
 def list_github_files():
@@ -100,14 +117,17 @@ def load_config():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error loading config: {str(e)}'})
 
-@app.route('/api/parse-links', methods=['POST'])
-def parse_links():
+@app.route('/api/add-links-and-test', methods=['POST'])
+def add_links_and_test():
     data = request.json
     links_text = data.get('links', '')
     
     # Extract VPN links using regex
     vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s]+"
     found_links = re.findall(vpn_pattern, links_text)
+    
+    if not found_links:
+        return jsonify({'success': False, 'message': 'No valid VPN links found'})
     
     # Parse each link
     accounts_from_links = []
@@ -120,6 +140,9 @@ def parse_links():
         else:
             invalid_links.append(link[:50] + "..." if len(link) > 50 else link)
     
+    if not accounts_from_links:
+        return jsonify({'success': False, 'message': 'No valid accounts could be parsed from the links'})
+    
     # Combine with existing accounts and deduplicate
     if not isinstance(session_data['all_accounts'], list):
         session_data['all_accounts'] = []
@@ -130,10 +153,11 @@ def parse_links():
     
     return jsonify({
         'success': True,
-        'message': f'Parsed {len(accounts_from_links)} new accounts',
+        'message': f'Added {len(accounts_from_links)} accounts. Ready to test!',
         'new_accounts': len(accounts_from_links),
         'total_accounts': len(session_data['all_accounts']),
-        'invalid_links': invalid_links
+        'invalid_links': invalid_links,
+        'ready_to_test': True
     })
 
 @socketio.on('start_testing')
@@ -187,11 +211,39 @@ def handle_start_testing():
                 # Sort by priority
                 successful_accounts.sort(key=sort_priority)
                 
+                # Save test session to database
+                session_id = save_test_session({
+                    'results': live_results,
+                    'successful': len(successful_accounts),
+                    'total': len(live_results),
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+                # Auto-generate configuration if we have successful accounts
+                if successful_accounts:
+                    try:
+                        final_accounts_to_inject = build_final_accounts(successful_accounts)
+                        fresh_template_data = load_template(TEMPLATE_FILE)
+                        final_config_data = inject_outbounds_to_template(fresh_template_data, final_accounts_to_inject)
+                        final_config_str = json.dumps(final_config_data, indent=2, ensure_ascii=False)
+                        session_data['final_config'] = final_config_str
+                        
+                        socketio.emit('config_generated', {
+                            'success': True,
+                            'account_count': len(final_accounts_to_inject)
+                        })
+                    except Exception as e:
+                        socketio.emit('config_generated', {
+                            'success': False,
+                            'error': str(e)
+                        })
+                
                 # Emit final results
                 socketio.emit('testing_complete', {
                     'results': live_results,
                     'successful': len(successful_accounts),
-                    'total': len(live_results)
+                    'total': len(live_results),
+                    'session_id': session_id
                 })
             
             # Run the async test function

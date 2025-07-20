@@ -152,17 +152,17 @@
                 </div>
             </section>
 
-            <!-- Accounts Section -->
+            <!-- Add Links & Test Section -->
             <section id="accounts" class="section">
                 <div class="section-header">
-                    <h2>VPN Accounts</h2>
-                    <p>Add new VPN links and manage existing accounts</p>
+                    <h2>Add VPN Links & Test</h2>
+                    <p>Paste your VPN links and start testing immediately</p>
                 </div>
 
                 <!-- Add Links -->
                 <div class="card">
                     <div class="card-header">
-                        <h3>Add VPN Links</h3>
+                        <h3>VPN Links Input</h3>
                     </div>
                     <div class="card-content">
                         <div class="form-group">
@@ -172,85 +172,40 @@
                                 placeholder="Paste your VPN links here (vless://, trojan://, ss://)"
                                 rows="8"
                             ></textarea>
-                            <small>Supported: VLESS, Trojan, Shadowsocks</small>
+                            <small>Supported: VLESS, Trojan, Shadowsocks - Testing will start automatically</small>
                         </div>
-                        <button class="btn btn-primary" id="parse-links-btn">
-                            <span class="btn-text">Parse Links</span>
+                        <button class="btn btn-success btn-large" id="add-and-test-btn">
+                            <span class="btn-text">🚀 Add Links & Start Testing</span>
                             <div class="btn-loader hidden"></div>
                         </button>
                     </div>
                 </div>
 
-                <!-- Account Summary -->
-                <div class="card">
+                <!-- Quick Stats -->
+                <div class="card" id="quick-stats" style="display: none;">
                     <div class="card-header">
-                        <h3>Account Summary</h3>
+                        <h3>Quick Summary</h3>
                     </div>
                     <div class="card-content">
                         <div class="stats-grid">
                             <div class="stat-item">
                                 <span class="stat-value" id="total-accounts">0</span>
-                                <span class="stat-label">Total Accounts</span>
+                                <span class="stat-label">Total Added</span>
                             </div>
                             <div class="stat-item">
-                                <span class="stat-value" id="vless-count">0</span>
-                                <span class="stat-label">VLESS</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value" id="trojan-count">0</span>
-                                <span class="stat-label">Trojan</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value" id="ss-count">0</span>
-                                <span class="stat-label">Shadowsocks</span>
+                                <span class="stat-value" id="test-status">⏳</span>
+                                <span class="stat-label">Status</span>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Recent Activity -->
-                <div class="card" id="recent-activity" style="display: none;">
-                    <div class="card-header">
-                        <h3>Recent Activity</h3>
-                    </div>
-                    <div class="card-content">
-                        <div id="activity-log"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- Testing Section -->
+            <!-- Live Testing Section -->
             <section id="testing" class="section">
                 <div class="section-header">
-                    <h2>Network Testing</h2>
-                    <p>Test VPN accounts for connectivity and performance</p>
-                </div>
-
-                <!-- Testing Controls -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Test Configuration</h3>
-                    </div>
-                    <div class="card-content">
-                        <div class="test-info">
-                            <div class="test-stat">
-                                <span class="test-value" id="test-total">0</span>
-                                <span class="test-label">Accounts to Test</span>
-                            </div>
-                            <div class="test-stat">
-                                <span class="test-value">5</span>
-                                <span class="test-label">Concurrent Tests</span>
-                            </div>
-                            <div class="test-stat">
-                                <span class="test-value">3</span>
-                                <span class="test-label">Max Retries</span>
-                            </div>
-                        </div>
-                        <button class="btn btn-success btn-large" id="start-testing-btn">
-                            <span class="btn-text">Start Testing</span>
-                            <div class="btn-loader hidden"></div>
-                        </button>
-                    </div>
+                    <h2>Live Testing Progress</h2>
+                    <p>Real-time VPN connection testing results</p>
                 </div>
 
                 <!-- Progress -->
@@ -269,28 +224,61 @@
                         <div class="test-stats">
                             <div class="test-stat-item success">
                                 <span id="successful-count">0</span>
-                                <span>Successful</span>
+                                <span>✅ Success</span>
                             </div>
                             <div class="test-stat-item failed">
                                 <span id="failed-count">0</span>
-                                <span>Failed</span>
+                                <span>❌ Failed</span>
                             </div>
                             <div class="test-stat-item testing">
                                 <span id="testing-count">0</span>
-                                <span>Testing</span>
+                                <span>🔄 Testing</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Live Results -->
+                <!-- Live Results Table -->
                 <div class="card" id="live-results" style="display: none;">
                     <div class="card-header">
-                        <h3>Live Results</h3>
+                        <h3>Live Test Results</h3>
+                        <small>Updated in real-time</small>
                     </div>
                     <div class="card-content">
-                        <div class="results-container" id="results-container">
-                            <!-- Results will be populated here -->
+                        <div class="testing-table-container">
+                            <table class="testing-table" id="testing-table">
+                                <thead>
+                                    <tr>
+                                        <th>No</th>
+                                        <th>Type</th>
+                                        <th>Country</th>
+                                        <th>Provider</th>
+                                        <th>IP</th>
+                                        <th>Latency</th>
+                                        <th>Jitter</th>
+                                        <th>ICMP</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="testing-table-body">
+                                    <!-- Results will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Auto-generated Config Notification -->
+                <div class="card" id="config-notification" style="display: none;">
+                    <div class="card-header">
+                        <h3>✅ Configuration Generated!</h3>
+                    </div>
+                    <div class="card-content">
+                        <p>Your VPN configuration has been automatically generated and is ready for download or upload to GitHub.</p>
+                        <div class="notification-actions">
+                            <button class="btn btn-primary" onclick="switchSection('export')">
+                                📥 Go to Download/Upload
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -346,56 +334,64 @@
                 </div>
             </section>
 
-            <!-- Export Section -->
+            <!-- Download/Upload Section -->
             <section id="export" class="section">
                 <div class="section-header">
-                    <h2>Export Configuration</h2>
-                    <p>Generate and download the final VPN configuration</p>
+                    <h2>Download & Upload</h2>
+                    <p>Your configuration has been auto-generated and is ready!</p>
                 </div>
 
-                <!-- Generate Config -->
-                <div class="card">
+                <!-- Configuration Status -->
+                <div class="card" id="config-status">
                     <div class="card-header">
-                        <h3>Generate Configuration</h3>
+                        <h3>✅ Configuration Ready</h3>
+                        <span class="badge success" id="config-badge">Auto-Generated</span>
                     </div>
                     <div class="card-content">
-                        <p>Generate a sing-box configuration file with successful VPN accounts.</p>
-                        <button class="btn btn-primary" id="generate-config-btn">
-                            <span class="btn-text">Generate Config</span>
-                            <div class="btn-loader hidden"></div>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Download Options -->
-                <div class="card" id="download-options" style="display: none;">
-                    <div class="card-header">
-                        <h3>Download Options</h3>
-                    </div>
-                    <div class="card-content">
-                        <div class="download-buttons">
-                            <button class="btn btn-success" id="download-config-btn">
-                                <i class="icon-download"></i>
-                                <span>Download Config</span>
-                            </button>
+                        <p>Your VPN configuration has been automatically generated with successful accounts.</p>
+                        <div class="config-info">
+                            <div class="config-stat">
+                                <span class="config-value" id="config-account-count">0</span>
+                                <span class="config-label">Working Accounts</span>
+                            </div>
+                            <div class="config-stat">
+                                <span class="config-value" id="config-timestamp">-</span>
+                                <span class="config-label">Generated</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- GitHub Upload -->
-                <div class="card" id="github-upload" style="display: none;">
+                <!-- Download Options -->
+                <div class="card">
                     <div class="card-header">
-                        <h3>Upload to GitHub</h3>
+                        <h3>📥 Download Configuration</h3>
+                    </div>
+                    <div class="card-content">
+                        <button class="btn btn-success btn-large" id="download-config-btn">
+                            <span class="btn-text">⬇️ Download VPN Config</span>
+                            <div class="btn-loader hidden"></div>
+                        </button>
+                        <small>Downloads a sing-box compatible JSON configuration file</small>
+                    </div>
+                </div>
+
+                <!-- GitHub Upload -->
+                <div class="card" id="github-upload">
+                    <div class="card-header">
+                        <h3>📤 Upload to GitHub</h3>
+                        <span class="badge" id="github-upload-status">Ready</span>
                     </div>
                     <div class="card-content">
                         <div class="form-group">
                             <label for="commit-message">Commit Message</label>
                             <input type="text" id="commit-message" value="Update VPN configuration" placeholder="Enter commit message">
                         </div>
-                        <button class="btn btn-primary" id="upload-github-btn">
-                            <span class="btn-text">Upload to GitHub</span>
+                        <button class="btn btn-primary btn-large" id="upload-github-btn">
+                            <span class="btn-text">⬆️ Upload to GitHub</span>
                             <div class="btn-loader hidden"></div>
                         </button>
+                        <small>Uploads the configuration to your GitHub repository</small>
                     </div>
                 </div>
             </section>

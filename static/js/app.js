@@ -29,8 +29,11 @@ function initializeApp() {
     // Setup form handlers
     setupFormHandlers();
     
-    // Check for saved GitHub configuration
-    checkSavedGitHubConfig();
+    // Load saved GitHub configuration
+    loadSavedGitHubConfig();
+    
+    // Auto-load template configuration
+    autoLoadConfiguration();
     
     // Update status
     updateStatus('Ready', 'success');
@@ -67,6 +70,10 @@ function initializeSocket() {
     
     socket.on('testing_complete', function(data) {
         handleTestingComplete(data);
+    });
+    
+    socket.on('config_generated', function(data) {
+        handleConfigGenerated(data);
     });
     
     socket.on('testing_error', function(data) {
@@ -135,14 +142,8 @@ function setupFormHandlers() {
     // Load configuration
     document.getElementById('load-config-btn').addEventListener('click', loadConfiguration);
     
-    // Parse VPN links
-    document.getElementById('parse-links-btn').addEventListener('click', parseVpnLinks);
-    
-    // Start testing
-    document.getElementById('start-testing-btn').addEventListener('click', startTesting);
-    
-    // Generate configuration
-    document.getElementById('generate-config-btn').addEventListener('click', generateConfiguration);
+    // Add links and test
+    document.getElementById('add-and-test-btn').addEventListener('click', addLinksAndTest);
     
     // Download configuration
     document.getElementById('download-config-btn').addEventListener('click', downloadConfiguration);
@@ -281,10 +282,6 @@ async function setupGitHub() {
             updateGitHubStatus('success');
             showToast('Success', data.message, 'success');
             updateStatus('GitHub configured', 'success');
-            
-            // Save to localStorage for convenience
-            localStorage.setItem('github-owner', owner);
-            localStorage.setItem('github-repo', repo);
         } else {
             updateGitHubStatus('error');
             showToast('Configuration Failed', data.message, 'error');
@@ -347,18 +344,53 @@ async function loadGitHubFiles() {
     }
 }
 
-// Check for saved GitHub configuration
-function checkSavedGitHubConfig() {
-    const savedOwner = localStorage.getItem('github-owner');
-    const savedRepo = localStorage.getItem('github-repo');
-    
-    if (savedOwner && savedRepo) {
-        document.getElementById('github-owner').value = savedOwner;
-        document.getElementById('github-repo').value = savedRepo;
+// Load saved GitHub configuration
+async function loadSavedGitHubConfig() {
+    try {
+        const response = await fetch('/api/get-github-config');
+        const data = await response.json();
+        
+        if (data.success && data.config.configured) {
+            document.getElementById('github-owner').value = data.config.owner;
+            document.getElementById('github-repo').value = data.config.repo;
+            isGitHubConfigured = true;
+            updateGitHubStatus('success');
+        }
+    } catch (error) {
+        console.error('Load GitHub config error:', error);
     }
 }
 
-// Configuration Functions
+// Auto-load configuration on startup
+async function autoLoadConfiguration() {
+    const requestData = { source: 'local' };
+    
+    try {
+        const response = await fetch('/api/load-config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData),
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            updateStatus('Template loaded', 'success');
+            showSetupStatus('Local template loaded successfully', 'success');
+        } else {
+            updateStatus('Template load failed', 'warning');
+            showSetupStatus('Failed to load local template', 'error');
+        }
+    } catch (error) {
+        console.error('Auto-load configuration error:', error);
+        updateStatus('Template unavailable', 'warning');
+        showSetupStatus('Template file not found', 'error');
+    }
+}
+
+// Manual configuration loading
 async function loadConfiguration() {
     const configSource = document.querySelector('input[name="config-source"]:checked').value;
     let requestData = { source: configSource };
@@ -389,7 +421,6 @@ async function loadConfiguration() {
         if (data.success) {
             showToast('Success', data.message, 'success');
             updateStatus('Configuration loaded', 'success');
-            updateAccountCounts();
             showSetupStatus(data.message, 'success');
         } else {
             showToast('Load Failed', data.message, 'error');
@@ -416,8 +447,8 @@ function showSetupStatus(message, type) {
     statusCard.style.display = 'block';
 }
 
-// Account Management Functions
-async function parseVpnLinks() {
+// Add links and start testing
+async function addLinksAndTest() {
     const linksText = document.getElementById('vpn-links').value.trim();
     
     if (!linksText) {
@@ -425,11 +456,11 @@ async function parseVpnLinks() {
         return;
     }
     
-    setButtonLoading('parse-links-btn', true);
-    updateStatus('Parsing VPN links...', 'info');
+    setButtonLoading('add-and-test-btn', true);
+    updateStatus('Adding links...', 'info');
     
     try {
-        const response = await fetch('/api/parse-links', {
+        const response = await fetch('/api/add-links-and-test', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -441,9 +472,15 @@ async function parseVpnLinks() {
         
         if (data.success) {
             showToast('Success', data.message, 'success');
-            updateStatus('Links parsed', 'success');
-            updateAccountCounts();
-            logActivity(`Parsed ${data.new_accounts} new accounts`);
+            updateStatus('Starting tests...', 'info');
+            
+            // Update account counts
+            totalAccounts = data.total_accounts;
+            document.getElementById('total-accounts').textContent = totalAccounts;
+            document.getElementById('test-status').textContent = '🔄';
+            
+            // Show quick stats
+            document.getElementById('quick-stats').style.display = 'block';
             
             // Clear the textarea
             document.getElementById('vpn-links').value = '';
@@ -451,16 +488,21 @@ async function parseVpnLinks() {
             if (data.invalid_links.length > 0) {
                 showToast('Some Invalid Links', `${data.invalid_links.length} links could not be parsed`, 'warning');
             }
+            
+            // Switch to testing section and start testing
+            switchSection('testing');
+            startTesting();
+            
         } else {
-            showToast('Parse Failed', data.message, 'error');
-            updateStatus('Parse failed', 'error');
+            showToast('Add Failed', data.message, 'error');
+            updateStatus('Add failed', 'error');
         }
     } catch (error) {
-        console.error('Parse links error:', error);
-        showToast('Network Error', 'Failed to parse links', 'error');
+        console.error('Add links error:', error);
+        showToast('Network Error', 'Failed to add links', 'error');
         updateStatus('Network error', 'error');
     } finally {
-        setButtonLoading('parse-links-btn', false);
+        setButtonLoading('add-and-test-btn', false);
     }
 }
 
@@ -516,7 +558,6 @@ function startTesting() {
         return;
     }
     
-    setButtonLoading('start-testing-btn', true);
     updateStatus('Starting tests...', 'info');
     
     showTestingProgress();
@@ -537,7 +578,6 @@ function showTestingProgress() {
 
 // Hide testing progress UI
 function hideTestingProgress() {
-    setButtonLoading('start-testing-btn', false);
     updateStatus('Testing stopped', 'warning');
 }
 
@@ -568,7 +608,6 @@ function updateTestingProgress(data) {
 
 // Handle testing completion
 function handleTestingComplete(data) {
-    setButtonLoading('start-testing-btn', false);
     updateStatus(`Testing complete: ${data.successful}/${data.total} successful`, 'success');
     
     showToast('Testing Complete', `${data.successful} out of ${data.total} accounts passed`, 'success');
@@ -578,12 +617,33 @@ function handleTestingComplete(data) {
     // Update results section
     updateResultsSummary(data);
     
-    // Show export options if we have successful accounts
-    if (data.successful > 0) {
-        showExportOptions();
-    }
+    // Update test status
+    document.getElementById('test-status').textContent = data.successful > 0 ? '✅' : '❌';
     
-    logActivity(`Testing completed: ${data.successful}/${data.total} successful`);
+    // Show notification for auto-generated config
+    if (data.successful > 0) {
+        document.getElementById('config-notification').style.display = 'block';
+    }
+}
+
+// Handle auto-generated configuration
+function handleConfigGenerated(data) {
+    if (data.success) {
+        showToast('Config Generated', `Configuration auto-generated with ${data.account_count} accounts`, 'success');
+        
+        // Update export section
+        document.getElementById('config-account-count').textContent = data.account_count;
+        document.getElementById('config-timestamp').textContent = new Date().toLocaleTimeString();
+        document.getElementById('config-badge').textContent = 'Auto-Generated';
+        
+        // Enable GitHub upload if configured
+        if (isGitHubConfigured) {
+            document.getElementById('github-upload-status').textContent = 'Ready';
+            document.getElementById('github-upload-status').classList.add('success');
+        }
+    } else {
+        showToast('Config Generation Failed', data.error, 'error');
+    }
 }
 
 // Update progress bar
@@ -600,43 +660,55 @@ function updateTestStats(successful, failed, testing) {
 
 // Update live results display
 function updateLiveResults(results) {
-    const container = document.getElementById('results-container');
-    container.innerHTML = '';
+    const tableBody = document.getElementById('testing-table-body');
+    tableBody.innerHTML = '';
     
     results.forEach((result, index) => {
-        const resultItem = createResultItem(result, index);
-        container.appendChild(resultItem);
+        const row = createTestingTableRow(result, index);
+        tableBody.appendChild(row);
     });
 }
 
-// Create result item element
-function createResultItem(result, index) {
-    const item = document.createElement('div');
-    item.className = 'result-item';
+// Create testing table row
+function createTestingTableRow(result, index) {
+    const row = document.createElement('tr');
     
+    const statusText = getStatusText(result.Status);
     const statusClass = getStatusClass(result.Status);
     const latencyText = result.Latency !== -1 ? `${result.Latency}ms` : '—';
+    const jitterText = result.Jitter !== -1 ? `${result.Jitter}ms` : '—';
     
-    item.innerHTML = `
-        <div class="result-status ${statusClass}"></div>
-        <div class="result-info">
-            <div class="result-country">${result.Country} ${result.Provider}</div>
-            <div class="result-provider">${result.VpnType.toUpperCase()}</div>
-        </div>
-        <div class="result-latency">${latencyText}</div>
-        <div class="result-type">${result.VpnType}</div>
-        <div class="result-ip">${result['Tested IP']}</div>
+    row.innerHTML = `
+        <td>${index + 1}</td>
+        <td class="type-cell">${result.VpnType}</td>
+        <td>${result.Country}</td>
+        <td>${result.Provider}</td>
+        <td>${result['Tested IP']}</td>
+        <td class="latency-cell">${latencyText}</td>
+        <td class="latency-cell">${jitterText}</td>
+        <td class="status-cell">${result.ICMP}</td>
+        <td class="status-cell ${statusClass}">${statusText}</td>
     `;
     
-    return item;
+    return row;
 }
 
 // Get CSS class for status
 function getStatusClass(status) {
-    if (status === '●') return 'success';
-    if (status.startsWith('✖')) return 'failed';
-    if (status.startsWith('Testing') || status.startsWith('Retry')) return 'testing';
-    return 'waiting';
+    if (status === '●') return 'status-success';
+    if (status.startsWith('✖')) return 'status-failed';
+    if (status.startsWith('Testing') || status.startsWith('Retry')) return 'status-testing';
+    return 'status-waiting';
+}
+
+// Get status text for display
+function getStatusText(status) {
+    if (status === '●') return '✅';
+    if (status.startsWith('✖')) return '❌';
+    if (status.startsWith('Testing')) return '🔄';
+    if (status.startsWith('Retry')) return '🔁';
+    if (status === 'WAIT') return '⏳';
+    return status;
 }
 
 // Results Functions
@@ -746,42 +818,7 @@ function filterResults() {
     displayDetailedResults(filteredResults);
 }
 
-// Export Functions
-function showExportOptions() {
-    document.getElementById('download-options').style.display = 'block';
-    if (isGitHubConfigured) {
-        document.getElementById('github-upload').style.display = 'block';
-    }
-}
-
-async function generateConfiguration() {
-    setButtonLoading('generate-config-btn', true);
-    updateStatus('Generating configuration...', 'info');
-    
-    try {
-        const response = await fetch('/api/generate-config', {
-            method: 'POST',
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Success', data.message, 'success');
-            updateStatus('Configuration generated', 'success');
-            showExportOptions();
-            logActivity(`Generated config with ${data.account_count} accounts`);
-        } else {
-            showToast('Generation Failed', data.message, 'error');
-            updateStatus('Generation failed', 'error');
-        }
-    } catch (error) {
-        console.error('Generate config error:', error);
-        showToast('Network Error', 'Failed to generate configuration', 'error');
-        updateStatus('Network error', 'error');
-    } finally {
-        setButtonLoading('generate-config-btn', false);
-    }
-}
+// Export Functions (Auto-generated, so no manual generation needed)
 
 async function downloadConfiguration() {
     updateStatus('Downloading configuration...', 'info');
