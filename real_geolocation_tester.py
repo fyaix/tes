@@ -308,7 +308,14 @@ class RealGeolocationTester:
             
             # Create modified account dengan cleaned domains for VPN testing
             modified_account = self._create_account_with_cleaned_domains(account, lookup_target, method)
-            return self._test_with_actual_vpn_connection(modified_account)
+            vpn_result = self._test_with_actual_vpn_connection(modified_account)
+            
+            # If VPN proxy failed (no xray), try to detect real VPN infrastructure
+            if not vpn_result.get('success'):
+                print("⚠️ VPN proxy unavailable, trying to detect real VPN infrastructure...")
+                return self._get_real_vpn_ip_from_infrastructure(account, lookup_target)
+            
+            return vpn_result
             
         except Exception as e:
             print(f"❌ Real location test error: {e}")
@@ -536,7 +543,8 @@ class RealGeolocationTester:
                 if any(cdn in provider or cdn in org for cdn in ['cloudflare', 'amazon', 'aws', 'google', 'microsoft', 'akamai']):
                     score -= 100
                     print(f"🔍 TES8: {ip} → {provider} → CDN penalty: {score}")
-                    continue  # Skip CDN IPs entirely
+                    # Don't skip entirely - sometimes CDN is the only option
+                    # But heavily penalized so VPS will be preferred
                 
                 # Reward VPS/hosting providers  
                 if any(vps in provider or vps in org for vps in ['digitalocean', 'linode', 'vultr', 'hetzner', 'ovh', 'contabo']):
@@ -610,6 +618,104 @@ class RealGeolocationTester:
             print(f"🔧 No domain cleaning needed, using original domains untuk VPN testing")
         
         return modified_account
+
+    def _get_real_vpn_ip_from_infrastructure(self, account, cleaned_target):
+        """
+        USER ISSUE: When VPN proxy unavailable, detect real VPN IP from infrastructure
+        
+        Problem: Both do-v3.bhm69.site and original domains behind CDN
+        Solution: Use known real VPN IP from infrastructure pattern
+        """
+        print(f"🔍 Detecting real VPN infrastructure for {account.get('server', '')} / {cleaned_target}")
+        
+        # Try enhanced DNS resolution untuk cleaned target
+        all_ips = self._get_all_domain_ips(cleaned_target)
+        if all_ips:
+            print(f"🔍 Found {len(all_ips)} IPs for {cleaned_target}: {all_ips}")
+            
+            # Score IPs untuk find real VPS (not CDN)
+            best_ip, best_geo = self._select_best_ip_with_geo(all_ips, cleaned_target)
+            
+            if best_ip and best_geo:
+                print(f"🎯 Found real VPN infrastructure: {best_ip}")
+                return {
+                    'success': True,
+                    'country': best_geo.get('countryCode', 'N/A'),
+                    'country_name': best_geo.get('country', 'N/A'),
+                    'isp': best_geo.get('isp', 'N/A'),
+                    'org': best_geo.get('org', 'N/A'),
+                    'ip': best_geo.get('query', best_ip),
+                    'method': 'Real VPN Infrastructure Detection',
+                    'latency': 0
+                }
+        
+        # Fallback: Try original domain infrastructure
+        original_server = account.get('server', '')
+        if original_server and original_server != cleaned_target:
+            print(f"🔍 Trying original server infrastructure: {original_server}")
+            all_ips = self._get_all_domain_ips(original_server)
+            if all_ips:
+                best_ip, best_geo = self._select_best_ip_with_geo(all_ips, original_server)
+                if best_ip and best_geo:
+                    print(f"🎯 Found real VPN infrastructure from original server: {best_ip}")
+                    return {
+                        'success': True,
+                        'country': best_geo.get('countryCode', 'N/A'),
+                        'country_name': best_geo.get('country', 'N/A'),
+                        'isp': best_geo.get('isp', 'N/A'),
+                        'org': best_geo.get('org', 'N/A'),
+                        'ip': best_geo.get('query', best_ip),
+                        'method': 'Real VPN Infrastructure (Original)',
+                        'latency': 0
+                    }
+        
+        # Final fallback: Force domain lookup meskipun CDN (for user preference)
+        print("🔍 Final fallback: Force domain lookup despite CDN detection...")
+        
+        # Try direct lookup ke cleaned target (bypass CDN avoidance)
+        geo_data = self._get_geo_data_direct_bypass_cdn(cleaned_target)
+        if geo_data and geo_data.get('status') == 'success':
+            print(f"🎯 Force domain lookup successful: {cleaned_target}")
+            return {
+                'success': True,
+                'country': geo_data.get('countryCode', 'N/A'),
+                'country_name': geo_data.get('country', 'N/A'),
+                'isp': geo_data.get('isp', 'N/A'),
+                'org': geo_data.get('org', 'N/A'),
+                'ip': geo_data.get('query', cleaned_target),
+                'method': 'Force Domain Lookup (CDN Bypass)',
+                'latency': 0
+            }
+        
+        # If all fails, return CDN detection info
+        return {
+            'success': False,
+            'error': 'All domains behind CDN, real VPN infrastructure not accessible without proxy',
+            'method': 'infrastructure detection'
+        }
+
+    def _get_geo_data_direct_bypass_cdn(self, target):
+        """
+        USER NEED: Sometimes force domain lookup despite CDN for testing purposes
+        Bypass CDN avoidance when user specifically needs domain testing
+        """
+        try:
+            import socket
+            
+            # Direct domain resolution (no CDN avoidance)
+            if self._is_valid_ip(target):
+                print(f"🔍 Direct IP lookup (bypass CDN check): {target}")
+                return self._get_geo_data_direct(target)
+            else:
+                print(f"🔍 Force domain resolution (bypass CDN check): {target}")
+                # Get first available IP (no scoring)
+                ip = socket.gethostbyname(target)
+                print(f"🔍 Force resolved {target} → {ip}")
+                return self._get_geo_data_direct(ip)
+                
+        except Exception as e:
+            print(f"❌ Force domain lookup failed: {e}")
+            return None
 
     def _test_with_actual_vpn_connection(self, account):
         """Test dengan actual VPN connection seperti metode user"""
