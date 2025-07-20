@@ -139,7 +139,22 @@ class SmartLocationResolver:
         port = account.get('server_port', 443)
         vpn_type = account.get('type', '')
         
-        # Cek host/sni dari transport/tls config
+        # 🎯 PRIORITY #1: Check IP dari path (highest priority)
+        from converter import extract_ip_port_from_path
+        path_str = account.get("_ss_path") or account.get("_ws_path") or ""
+        path_ip, path_port = extract_ip_port_from_path(path_str)
+        
+        if path_ip:
+            print(f"🎯 Found IP in path: {path_ip}:{path_port or port}")
+            geo_info = geoip_lookup(path_ip)
+            return {
+                "Country": geo_info.get("Country", "❓"),
+                "Provider": geo_info.get("Provider", "-"),
+                "Tested IP": path_ip,
+                "Resolution Method": "path IP (highest priority)"
+            }
+        
+        # Get host/sni dari transport/tls config untuk fallback
         host = None
         sni = None
         
@@ -155,7 +170,7 @@ class SmartLocationResolver:
         if isinstance(tls_config, dict):
             sni = tls_config.get('sni') or tls_config.get('server_name')
         
-        # Priority untuk testing:
+        # Priority untuk testing (setelah path IP):
         # 1. Jika server adalah IP, langsung pakai
         # 2. Jika ada host/sni yang berbeda dari server, test host/sni dulu
         # 3. Fallback ke server

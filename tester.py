@@ -14,7 +14,7 @@ def get_first_nonempty(*args):
     return None
 
 def get_test_target(account):
-    # 1. Coba IP dari path
+    # 1. Coba IP dari path (support SS dan WS path untuk semua protokol)
     path_str = account.get("_ss_path") or account.get("_ws_path") or ""
     target_ip, target_port = extract_ip_port_from_path(path_str)
     if target_ip:

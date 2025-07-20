@@ -161,9 +161,63 @@ def parse_trojan(link):
         outbound["_ws_path"] = ""
     return outbound
 
+def parse_vmess(link):
+    """Parse VMess link (base64 encoded JSON format)"""
+    try:
+        # Remove vmess:// prefix
+        encoded_part = link.replace("vmess://", "", 1)
+        
+        # Decode base64
+        import json
+        decoded_json = base64.urlsafe_b64decode(encoded_part + "=" * (-len(encoded_part) % 4)).decode()
+        config = json.loads(decoded_json)
+        
+        # Build outbound from VMess config
+        outbound = {
+            "type": "vmess",
+            "tag": config.get("ps", config.get("add", "vmess-account")),  # ps = remarks
+            "server": config.get("add", ""),  # add = address/server
+            "server_port": int(config.get("port", 443)),
+            "uuid": config.get("id", ""),  # id = uuid
+            "security": config.get("scy", "auto"),  # scy = security
+            "alter_id": int(config.get("aid", 0)),  # aid = alter_id
+        }
+        
+        # Handle TLS
+        tls_enabled = config.get("tls", "") == "tls"
+        outbound["tls"] = {
+            "enabled": tls_enabled,
+            "server_name": config.get("sni", config.get("add", "")),
+            "insecure": False
+        }
+        
+        # Handle transport (network type)
+        net = config.get("net", "tcp")  # tcp, ws, etc
+        outbound["transport"] = {"type": net}
+        
+        if net == "ws":
+            outbound["transport"] = {
+                "type": "ws",
+                "path": config.get("path", "/"),
+                "headers": {"Host": config.get("host", config.get("add", ""))}
+            }
+            outbound["_ws_host"] = config.get("host", "")
+            outbound["_ws_path"] = config.get("path", "/")
+        else:
+            outbound["_ws_host"] = ""
+            outbound["_ws_path"] = ""
+            
+        return outbound
+        
+    except Exception as e:
+        print(f"Error parsing VMess link: {e}")
+        return None
+
 def parse_link(link):
     if link.startswith("vless://"):
         return parse_vless(link)
+    elif link.startswith("vmess://"):
+        return parse_vmess(link)
     elif link.startswith("trojan://"):
         return parse_trojan(link)
     elif link.startswith("ss://"):
