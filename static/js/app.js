@@ -147,6 +147,14 @@ function setupFormHandlers() {
     // Add links and test
     document.getElementById('add-and-test-btn').addEventListener('click', addLinksAndTest);
     
+    // Server replacement handlers
+    document.getElementById('preview-replacement-btn').addEventListener('click', previewServerReplacement);
+    document.getElementById('apply-replacement-btn').addEventListener('click', applyServerReplacement);
+    document.getElementById('close-preview-btn').addEventListener('click', closeReplacementPreview);
+    
+    // Input change handler for replacement stats
+    document.getElementById('replacement-servers').addEventListener('input', updateReplacementStats);
+    
     // Download configuration
     document.getElementById('download-config-btn').addEventListener('click', downloadConfiguration);
     
@@ -480,6 +488,9 @@ async function addLinksAndTest() {
             totalAccounts = data.total_accounts;
             document.getElementById('total-accounts').textContent = totalAccounts;
             document.getElementById('test-status').textContent = '🔄';
+            
+            // Load parsed accounts for server replacement
+            await loadParsedAccounts();
             
             // Show quick stats
             document.getElementById('quick-stats').style.display = 'block';
@@ -1080,6 +1091,238 @@ function testTableDisplay() {
 
 // Make it globally accessible for testing
 window.testTableDisplay = testTableDisplay;
+
+// ========================================
+// SERVER REPLACEMENT FUNCTIONALITY
+// ========================================
+
+// Global variable for parsed VPN accounts
+let parsedVpnAccounts = [];
+
+// Load parsed VPN accounts from backend
+async function loadParsedAccounts() {
+    try {
+        const response = await fetch('/api/get-accounts');
+        const data = await response.json();
+        
+        if (data.success) {
+            parsedVpnAccounts = data.accounts;
+            console.log(`Loaded ${parsedVpnAccounts.length} VPN accounts for server replacement`);
+        }
+    } catch (error) {
+        console.error('Error loading parsed accounts:', error);
+    }
+}
+
+// Update replacement stats when servers input changes
+function updateReplacementStats() {
+    const serversInput = document.getElementById('replacement-servers').value.trim();
+    const replacementStats = document.getElementById('replacement-stats');
+    
+    if (!serversInput) {
+        replacementStats.style.display = 'none';
+        document.getElementById('apply-replacement-btn').disabled = true;
+        return;
+    }
+    
+    // Parse servers (comma or line separated)
+    const servers = parseServerInput(serversInput);
+    const totalAccounts = parsedVpnAccounts.length;
+    
+    if (totalAccounts === 0) {
+        showToast('No VPN Accounts', 'Please add VPN links first before server replacement', 'warning');
+        return;
+    }
+    
+    // Calculate distribution
+    const accountsPerServer = Math.ceil(totalAccounts / servers.length);
+    
+    // Update stats display
+    document.getElementById('total-vpn-accounts').textContent = totalAccounts;
+    document.getElementById('total-servers').textContent = servers.length;
+    document.getElementById('accounts-per-server').textContent = `~${accountsPerServer}`;
+    
+    replacementStats.style.display = 'block';
+    document.getElementById('apply-replacement-btn').disabled = false;
+}
+
+// Parse server input (comma or line separated)
+function parseServerInput(input) {
+    if (!input) return [];
+    
+    // Try comma separation first
+    let servers = input.split(',').map(s => s.trim()).filter(s => s);
+    
+    // If only one result, try line separation
+    if (servers.length === 1) {
+        servers = input.split('\n').map(s => s.trim()).filter(s => s);
+    }
+    
+    return servers;
+}
+
+// Preview server replacement distribution
+async function previewServerReplacement() {
+    const btn = document.getElementById('preview-replacement-btn');
+    const loader = btn.querySelector('.btn-loader');
+    const text = btn.querySelector('.btn-text');
+    
+    // Show loading
+    loader.classList.remove('hidden');
+    text.textContent = '📋 Generating Preview...';
+    btn.disabled = true;
+    
+    try {
+        const serversInput = document.getElementById('replacement-servers').value.trim();
+        
+        if (!serversInput) {
+            showToast('Input Required', 'Please enter new server addresses', 'warning');
+            return;
+        }
+        
+        // Use backend API for preview
+        const response = await fetch('/api/preview-server-replacement', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ servers: serversInput }),
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayDistributionPreview(data.distribution);
+            showToast('Preview Generated', `Distribution preview generated for ${data.total_servers} servers`, 'success');
+        } else {
+            showToast('Preview Error', data.message, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error generating preview:', error);
+        showToast('Preview Error', 'Failed to generate distribution preview', 'error');
+    } finally {
+        // Reset button
+        loader.classList.add('hidden');
+        text.textContent = '📋 Preview Distribution';
+        btn.disabled = false;
+    }
+}
+
+// Note: generateServerDistribution moved to backend for consistency
+
+// Display distribution preview
+function displayDistributionPreview(distribution) {
+    const previewCard = document.getElementById('replacement-preview');
+    const previewContent = document.getElementById('distribution-preview');
+    
+    let html = '';
+    
+    Object.entries(distribution).forEach(([server, accounts]) => {
+        html += `
+            <div class="distribution-group">
+                <div class="distribution-header">
+                    <span class="distribution-server">${server}</span>
+                    <span class="distribution-count">${accounts.length} accounts</span>
+                </div>
+                <div class="distribution-accounts">
+        `;
+        
+        accounts.forEach(account => {
+            const accountName = account.name || account.server || 'Unknown';
+            html += `
+                <div class="distribution-account">
+                    ${accountName}
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    
+    previewContent.innerHTML = html;
+    previewCard.style.display = 'block';
+}
+
+// Close replacement preview
+function closeReplacementPreview() {
+    document.getElementById('replacement-preview').style.display = 'none';
+}
+
+// Apply server replacement
+async function applyServerReplacement() {
+    const btn = document.getElementById('apply-replacement-btn');
+    const loader = btn.querySelector('.btn-loader');
+    const text = btn.querySelector('.btn-text');
+    
+    // Show loading
+    loader.classList.remove('hidden');
+    text.textContent = '⚡ Applying Changes...';
+    btn.disabled = true;
+    
+    try {
+        const serversInput = document.getElementById('replacement-servers').value.trim();
+        
+        if (!serversInput) {
+            showToast('Input Required', 'Please enter new server addresses', 'warning');
+            return;
+        }
+        
+        // Use backend API for replacement
+        const response = await fetch('/api/apply-server-replacement', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ servers: serversInput }),
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update UI
+            updateReplacementStatus(`Applied to ${data.total_replaced} accounts`);
+            
+            // Close preview
+            closeReplacementPreview();
+            
+            // Clear input
+            document.getElementById('replacement-servers').value = '';
+            updateReplacementStats();
+            
+            // Reload accounts data
+            await loadParsedAccounts();
+            
+            showToast('Replacement Applied', data.message, 'success');
+            
+            // Auto-restart testing with new servers
+            if (confirm('Server replacement applied successfully! Start testing with new servers?')) {
+                startTesting();
+            }
+        } else {
+            showToast('Replacement Error', data.message, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error applying replacement:', error);
+        showToast('Replacement Error', 'Failed to apply server replacement', 'error');
+    } finally {
+        // Reset button
+        loader.classList.add('hidden');
+        text.textContent = '⚡ Apply Replacement';
+        btn.disabled = false;
+    }
+}
+
+// Update replacement status badge
+function updateReplacementStatus(status) {
+    const statusBadge = document.getElementById('server-replace-status');
+    statusBadge.textContent = status;
+    statusBadge.className = 'badge badge-success';
+}
 
 // Add CSS for dynamic elements
 const dynamicStyles = document.createElement('style');

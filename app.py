@@ -409,6 +409,125 @@ def get_results():
         'has_config': session_data['final_config'] is not None
     })
 
+@app.route('/api/get-accounts')
+def get_accounts():
+    """Get all parsed VPN accounts for server replacement"""
+    return jsonify({
+        'success': True,
+        'accounts': session_data['all_accounts'],
+        'total': len(session_data['all_accounts'])
+    })
+
+@app.route('/api/preview-server-replacement', methods=['POST'])
+def preview_server_replacement():
+    """Preview server replacement distribution"""
+    try:
+        data = request.json
+        servers_input = data.get('servers', '').strip()
+        
+        if not servers_input:
+            return jsonify({'success': False, 'message': 'No servers provided'})
+        
+        if not session_data['all_accounts']:
+            return jsonify({'success': False, 'message': 'No VPN accounts found'})
+        
+        # Parse servers (comma or line separated)
+        servers = parse_servers_input(servers_input)
+        
+        # Generate random distribution
+        import random
+        accounts = session_data['all_accounts'].copy()
+        random.shuffle(accounts)
+        
+        # Calculate distribution
+        accounts_per_server = len(accounts) // len(servers)
+        remainder = len(accounts) % len(servers)
+        
+        distribution = {}
+        start_idx = 0
+        
+        for i, server in enumerate(servers):
+            # Add extra account to first few servers if there's remainder
+            count = accounts_per_server + (1 if i < remainder else 0)
+            end_idx = start_idx + count
+            
+            distribution[server] = accounts[start_idx:end_idx]
+            start_idx = end_idx
+        
+        return jsonify({
+            'success': True,
+            'distribution': distribution,
+            'total_accounts': len(accounts),
+            'total_servers': len(servers)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Preview error: {str(e)}'})
+
+@app.route('/api/apply-server-replacement', methods=['POST'])
+def apply_server_replacement():
+    """Apply server replacement to VPN accounts"""
+    try:
+        data = request.json
+        servers_input = data.get('servers', '').strip()
+        
+        if not servers_input:
+            return jsonify({'success': False, 'message': 'No servers provided'})
+        
+        if not session_data['all_accounts']:
+            return jsonify({'success': False, 'message': 'No VPN accounts found'})
+        
+        # Parse servers
+        servers = parse_servers_input(servers_input)
+        
+        # Generate random distribution and apply
+        import random
+        accounts = session_data['all_accounts']
+        random.shuffle(accounts)
+        
+        # Calculate distribution
+        accounts_per_server = len(accounts) // len(servers)
+        remainder = len(accounts) % len(servers)
+        
+        total_replaced = 0
+        start_idx = 0
+        
+        for i, server in enumerate(servers):
+            # Add extra account to first few servers if there's remainder
+            count = accounts_per_server + (1 if i < remainder else 0)
+            end_idx = start_idx + count
+            
+            # Apply server replacement
+            for account in accounts[start_idx:end_idx]:
+                account['server'] = server
+                total_replaced += 1
+            
+            start_idx = end_idx
+        
+        return jsonify({
+            'success': True,
+            'message': f'Server addresses updated for {total_replaced} VPN accounts',
+            'total_replaced': total_replaced,
+            'servers_used': len(servers)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Replacement error: {str(e)}'})
+
+def parse_servers_input(servers_input):
+    """Parse server input (comma or line separated)"""
+    if not servers_input:
+        return []
+    
+    # Try comma separation first
+    servers = [s.strip() for s in servers_input.split(',') if s.strip()]
+    
+    # If only one result, try line separation
+    if len(servers) == 1:
+        servers = [s.strip() for s in servers_input.split('\n') if s.strip()]
+    
+    return servers
+
 if __name__ == '__main__':
     load_dotenv()
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

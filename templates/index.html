@@ -181,6 +181,62 @@
                     </div>
                 </div>
 
+                <!-- Server Replacement -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🔄 Server Replacement</h3>
+                        <span class="badge" id="server-replace-status">Ready</span>
+                    </div>
+                    <div class="card-content">
+                        <div class="form-group">
+                            <label for="replacement-servers">New Server Addresses</label>
+                            <textarea 
+                                id="replacement-servers" 
+                                placeholder="Enter new server addresses (one per line or comma separated):&#10;test1.example.com&#10;test2.example.com&#10;or: test1.com, test2.com, test3.com"
+                                rows="4"
+                            ></textarea>
+                            <small>Multiple servers will be distributed randomly across all VPN accounts</small>
+                        </div>
+                        <div class="replacement-stats" id="replacement-stats" style="display: none;">
+                            <div class="stats-row">
+                                <div class="stat-item">
+                                    <span class="stat-value" id="total-vpn-accounts">0</span>
+                                    <span class="stat-label">VPN Accounts</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value" id="total-servers">0</span>
+                                    <span class="stat-label">New Servers</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value" id="accounts-per-server">0</span>
+                                    <span class="stat-label">Per Server</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn btn-info" id="preview-replacement-btn">
+                                <span class="btn-text">📋 Preview Distribution</span>
+                                <div class="btn-loader hidden"></div>
+                            </button>
+                            <button class="btn btn-warning" id="apply-replacement-btn" disabled>
+                                <span class="btn-text">⚡ Apply Replacement</span>
+                                <div class="btn-loader hidden"></div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Replacement Preview -->
+                <div class="card" id="replacement-preview" style="display: none;">
+                    <div class="card-header">
+                        <h3>📊 Distribution Preview</h3>
+                        <button class="btn btn-sm btn-secondary" id="close-preview-btn">✕</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="distribution-preview"></div>
+                    </div>
+                </div>
+
                 <!-- Quick Stats -->
                 <div class="card" id="quick-stats" style="display: none;">
                     <div class="card-header">
