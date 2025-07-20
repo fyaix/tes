@@ -1,9 +1,13 @@
 import socket
 import re
-import requests
 import time
 import subprocess
 import statistics
+
+try:
+    import requests
+except ImportError:
+    requests = None
 
 def get_flag_emoji(country_code: str) -> str:
     if not isinstance(country_code, str) or len(country_code) != 2:
@@ -47,6 +51,10 @@ def is_alive(host, port=443, timeout=3) -> tuple[bool, int]:
 def geoip_lookup(ip: str) -> dict:
     default_result = {"Country": "❓", "Provider": "-"}
     if not ip or not isinstance(ip, str): return default_result
+    
+    if not requests:
+        return default_result
+        
     try:
         url = f"http://ip-api.com/json/{ip}?fields=status,country,countryCode,isp,org"
         response = requests.get(url, timeout=5)
@@ -59,5 +67,5 @@ def geoip_lookup(ip: str) -> dict:
                     "Provider": provider
                 }
         return default_result
-    except requests.RequestException:
+    except (requests.RequestException, AttributeError):
         return default_result

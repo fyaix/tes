@@ -94,6 +94,14 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                     "ICMP": "✔",
                     **geo_info
                 })
+                
+                # Enhance dengan smart location resolver jika perlu
+                try:
+                    from location_resolver import enhance_geolocation
+                    result = enhance_geolocation(account, result)
+                except ImportError:
+                    pass  # Fallback ke basic geolocation
+                
                 # Update live_results
                 if live_results is not None:
                     live_results[index].update(result)
@@ -125,6 +133,14 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                     **stats,
                     **geo_info
                 })
+                
+                # Enhance dengan smart location resolver jika perlu
+                try:
+                    from location_resolver import enhance_geolocation
+                    result = enhance_geolocation(account, result)
+                except ImportError:
+                    pass  # Fallback ke basic geolocation
+                
                 # Update live_results
                 if live_results is not None:
                     live_results[index].update(result)
