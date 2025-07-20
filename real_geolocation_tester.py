@@ -313,10 +313,12 @@ class RealGeolocationTester:
             # Get lookup target dengan user's simplified method
             lookup_target, method = self.get_lookup_target(account)
             
-            # Jika ada lookup target (IP/SNI/Host), test langsung
+            # TES8 ENHANCED: Testing dengan CDN avoidance dan smart IP selection
             if lookup_target and "proxy" not in method.lower():
-                print(f"🔍 Direct geolocation lookup: {lookup_target} ({method})")
-                geo_data = self._get_geo_data(lookup_target)
+                print(f"🔍 TES8 Enhanced testing: {lookup_target} ({method})")
+                
+                # TES8: Use enhanced geolocation dengan CDN avoidance
+                geo_data = self._get_geo_data_enhanced(lookup_target)
                 if geo_data and geo_data.get('status') == 'success':
                     return {
                         'success': True,
@@ -325,9 +327,12 @@ class RealGeolocationTester:
                         'isp': geo_data.get('isp', 'N/A'),
                         'org': geo_data.get('org', 'N/A'),
                         'ip': geo_data.get('query', lookup_target),
-                        'method': f"Direct {method}",
-                        'latency': 0  # Direct lookup = no connection test
+                        'method': f"TES8 Enhanced {method}",
+                        'latency': 0  # Direct lookup with enhanced resolution
                     }
+                else:
+                    print(f"⚠️ TES8 Enhanced lookup failed for {lookup_target}, trying VPN proxy...")
+                    # Fallback ke VPN proxy jika enhanced lookup gagal
             
             # Fallback: Test dengan actual VPN connection (user's proven method)
             print("🔍 Testing with actual VPN connection...")
@@ -450,6 +455,151 @@ class RealGeolocationTester:
             print(f"❌ Failed to resolve domain: {target}")
             return None
     
+    def _get_geo_data_enhanced(self, target):
+        """TES8 ENHANCED: Sempurnakan geolocation dengan advanced CDN avoidance"""
+        # Jika target adalah IP, langsung query
+        if self._is_valid_ip(target):
+            print(f"🔍 TES8: Direct IP geolocation: {target}")
+            return self._get_geo_data_direct(target)
+        
+        # TES8 ENHANCED: Domain resolution dengan advanced CDN avoidance
+        print(f"🔍 TES8: Enhanced domain resolution: {target}")
+        
+        # Step 1: Get all possible IPs
+        all_ips = self._get_all_domain_ips(target)
+        if not all_ips:
+            print(f"❌ TES8: No IPs found for domain: {target}")
+            return None
+        
+        print(f"🔍 TES8: Found {len(all_ips)} IPs for {target}: {all_ips}")
+        
+        # Step 2: Score and select best IP dengan TES8 method
+        best_ip, best_geo = self._select_best_ip_with_geo(all_ips, target)
+        
+        if best_ip and best_geo:
+            print(f"🎯 TES8: Selected best IP {best_ip} with accurate geolocation")
+            return best_geo
+        else:
+            print(f"❌ TES8: Failed to get accurate geolocation for {target}")
+            return None
+    
+    def _get_all_domain_ips(self, domain):
+        """TES8: Get all possible IPs untuk domain dengan multiple methods"""
+        all_ips = []
+        
+        try:
+            import socket
+            
+            # Method 1: Standard resolution
+            try:
+                ip = socket.gethostbyname(domain)
+                all_ips.append(ip)
+                print(f"🔍 TES8: Standard DNS → {ip}")
+            except:
+                pass
+            
+            # Method 2: dig command (if available)
+            try:
+                result = subprocess.run(
+                    ['dig', '+short', domain], 
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.strip().split('\n'):
+                        line = line.strip()
+                        if line and self._is_valid_ip(line):
+                            all_ips.append(line)
+                            print(f"🔍 TES8: dig DNS → {line}")
+            except:
+                pass
+            
+            # Method 3: Try different DNS servers (TES8 enhancement)
+            for dns_server in ['8.8.8.8', '1.1.1.1']:
+                try:
+                    result = subprocess.run(
+                        ['nslookup', domain, dns_server],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.returncode == 0:
+                        # Parse nslookup output untuk IP
+                        import re
+                        ips = re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', result.stdout)
+                        for ip in ips:
+                            if ip not in ['127.0.0.1', '8.8.8.8', '1.1.1.1'] and self._is_valid_ip(ip):
+                                all_ips.append(ip)
+                                print(f"🔍 TES8: nslookup @{dns_server} → {ip}")
+                except:
+                    pass
+            
+        except Exception as e:
+            print(f"❌ TES8: DNS resolution error: {e}")
+        
+        # Remove duplicates and return
+        unique_ips = list(set(all_ips))
+        return unique_ips
+    
+    def _select_best_ip_with_geo(self, ip_list, original_domain):
+        """TES8: Select best IP berdasarkan geolocation scoring"""
+        best_ip = None
+        best_geo = None
+        best_score = -999
+        
+        print(f"🔍 TES8: Evaluating {len(ip_list)} IPs for best geolocation...")
+        
+        for ip in ip_list:
+            try:
+                # Get geolocation untuk IP ini
+                geo_data = self._get_geo_data_direct(ip)
+                if not geo_data or geo_data.get('status') != 'success':
+                    continue
+                
+                provider = geo_data.get('isp', '').lower()
+                org = geo_data.get('org', '').lower()
+                country = geo_data.get('countryCode', '')
+                
+                # TES8 Scoring algorithm
+                score = 0
+                
+                # Penalize CDN providers heavily
+                if any(cdn in provider or cdn in org for cdn in ['cloudflare', 'amazon', 'aws', 'google', 'microsoft', 'akamai']):
+                    score -= 100
+                    print(f"🔍 TES8: {ip} → {provider} → CDN penalty: {score}")
+                    continue  # Skip CDN IPs entirely
+                
+                # Reward VPS/hosting providers  
+                if any(vps in provider or vps in org for vps in ['digitalocean', 'linode', 'vultr', 'hetzner', 'ovh', 'contabo']):
+                    score += 50
+                    print(f"🔍 TES8: {ip} → {provider} → VPS reward: {score}")
+                
+                # Reward legitimate data centers
+                if any(dc in provider or dc in org for dc in ['datacenter', 'data center', 'hosting', 'server', 'network']):
+                    score += 30
+                    print(f"🔍 TES8: {ip} → {provider} → Datacenter reward: {score}")
+                
+                # Geographic relevance (if domain suggests location)
+                if len(country) == 2:  # Valid country code
+                    if original_domain.startswith(country.lower() + '.') or country.lower() in original_domain:
+                        score += 20
+                        print(f"🔍 TES8: {ip} → {country} → Geographic match: {score}")
+                
+                print(f"🔍 TES8: {ip} → {provider} → Final score: {score}")
+                
+                if score > best_score:
+                    best_score = score
+                    best_ip = ip
+                    best_geo = geo_data
+                    
+            except Exception as e:
+                print(f"❌ TES8: Error evaluating IP {ip}: {e}")
+                continue
+        
+        if best_ip:
+            print(f"🎯 TES8: Best IP selected: {best_ip} (score: {best_score}) → {best_geo.get('isp', 'N/A')}")
+        else:
+            print(f"❌ TES8: No suitable IP found, all were CDN or failed")
+        
+        return best_ip, best_geo
+
     def _test_with_actual_vpn_connection(self, account):
         """Test dengan actual VPN connection seperti metode user"""
         if not os.path.exists(self.xray_path):
