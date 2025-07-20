@@ -94,15 +94,16 @@ class RealGeolocationTester:
     
     def get_lookup_target(self, account):
         """
-        USER PREFERENCE: Use actual VPN proxy method (lebih akurat)
+        USER'S SIMPLIFIED METHOD: Like the working standalone script
         
-        Priority logic:
-        1. IP dari path (direct geolocation - tetap prioritas tinggi)
-        2. Semua lainnya → actual VPN proxy method (user preference)
-        
-        JANGAN PERNAH test server field
+        Priority logic (simplified):
+        1. IP dari path (direct geolocation)
+        2. SNI jika berbeda dari address
+        3. Host jika berbeda dari address  
+        4. Fallback: actual VPN proxy method
         """
-        server = account.get('server', '')
+        # Extract details in user's format
+        address = account.get('server', '')
         
         # 🎯 PRIORITY #1: Check IP dari path
         path_str = account.get("_ss_path") or account.get("_ws_path") or ""
@@ -133,95 +134,141 @@ class RealGeolocationTester:
             if isinstance(headers, dict):
                 host = headers.get('Host')
         
-        print(f"🔍 Raw values - Server: {server}, SNI: {sni}, Host: {host}")
+        print(f"🔍 Raw values - Address: {address}, SNI: {sni}, Host: {host}")
         
-        # 🎯 USER PREFERENCE: Pakai actual VPN proxy method saja (lebih akurat)
-        print("🎯 Using actual VPN proxy method (user preference: test actuall vpn lebih akurat)")
-        return None, "actual VPN proxy method"
+        # 🎯 PRIORITY #2: SNI jika berbeda dari address (user's method)
+        if sni and sni != address:
+            print(f"🎯 Using SNI for direct lookup: {sni}")
+            return sni, "SNI lookup"
+        
+        # 🎯 PRIORITY #3: Host jika berbeda dari address (user's method)  
+        if host and host != address:
+            print(f"🎯 Using Host for direct lookup: {host}")
+            return host, "Host lookup"
+        
+        # 🎯 FALLBACK: Actual VPN proxy method
+        print("🎯 Using actual VPN proxy method (no direct lookup target)")
+        return None, "VPN proxy method"
     
     def create_xray_config(self, account):
-        """Create Xray config untuk testing - adapted dari user's method"""
+        """
+        USER'S IMPROVED METHOD: Create Xray config dengan proper VLESS/VMess handling
+        Based on working standalone script
+        """
         protocol = account.get('type', '')
         
-        # Build outbound berdasarkan protokol
-        if protocol == 'vless':
-            outbound = {
-                "protocol": "vless",
-                "settings": {
-                    "vnext": [{
-                        "address": account.get('server', ''),
-                        "port": int(account.get('server_port', 443)),
-                        "users": [{
-                            "id": account.get('uuid', ''),
-                            "encryption": account.get('encryption', 'none')
-                        }]
-                    }]
-                }
-            }
-        elif protocol == 'vmess':
-            outbound = {
-                "protocol": "vmess",
-                "settings": {
-                    "vnext": [{
-                        "address": account.get('server', ''),
-                        "port": int(account.get('server_port', 443)),
-                        "users": [{
-                            "id": account.get('uuid', ''),
-                            "alterId": account.get('alter_id', 0)
-                        }]
-                    }]
-                }
-            }
-        elif protocol == 'trojan':
-            outbound = {
-                "protocol": "trojan",
-                "settings": {
-                    "servers": [{
-                        "address": account.get('server', ''),
-                        "port": int(account.get('server_port', 443)),
-                        "password": account.get('password', '')
-                    }]
-                }
-            }
-        elif protocol == 'shadowsocks':
-            outbound = {
-                "protocol": "shadowsocks",
-                "settings": {
-                    "servers": [{
-                        "address": account.get('server', ''),
-                        "port": int(account.get('server_port', 443)),
-                        "method": account.get('method', 'aes-256-gcm'),
-                        "password": account.get('password', '')
-                    }]
-                }
-            }
-        else:
-            return None
+        # Mapping protocol names untuk Xray
+        protocol_name = 'shadowsocks' if protocol == 'ss' else protocol
+        outbound = {"protocol": protocol_name}
         
-        # Add stream settings jika ada
+        # --- STREAM SETTINGS (Handle transport & TLS first) ---
         transport = account.get('transport', {})
         tls_config = account.get('tls', {})
         
-        if transport or tls_config:
+        if transport.get('type') != 'tcp' or tls_config.get('enabled'):
             stream_settings = {}
             
             # Network type
-            if transport.get('type') == 'ws':
-                stream_settings['network'] = 'ws'
-                stream_settings['wsSettings'] = {
-                    'path': transport.get('path', '/'),
-                    'headers': transport.get('headers', {})
-                }
+            network_type = transport.get('type', 'tcp')
+            if network_type != 'tcp':
+                stream_settings["network"] = network_type
             
             # TLS settings
-            if tls_config.get('enabled'):
+            if tls_config.get('enabled') or account.get('security') == 'tls':
                 stream_settings['security'] = 'tls'
-                stream_settings['tlsSettings'] = {
-                    'serverName': tls_config.get('sni') or tls_config.get('server_name', '')
+                sni = tls_config.get('sni') or tls_config.get('server_name', account.get('server', ''))
+                stream_settings['tlsSettings'] = {"serverName": sni}
+                
+                # ALPN support (user's improvement)
+                alpn = account.get('alpn')
+                if alpn:
+                    stream_settings['tlsSettings']["alpn"] = [alpn]
+            
+            # WebSocket settings
+            if network_type == 'ws':
+                ws_settings = {
+                    "path": transport.get('path', '/'),
+                    "headers": transport.get('headers', {})
+                }
+                stream_settings['wsSettings'] = ws_settings
+            
+            # gRPC settings
+            elif network_type == 'grpc':
+                stream_settings['grpcSettings'] = {
+                    "serviceName": transport.get('serviceName', account.get('serviceName', ''))
                 }
             
             if stream_settings:
                 outbound['streamSettings'] = stream_settings
+        
+        # --- PROTOCOL SETTINGS (User's improved approach) ---
+        if protocol_name == 'vless':
+            user_config = {
+                "uuid": account.get('uuid', account.get('user_id', '')),
+                "encryption": account.get('encryption', 'none') or 'none'
+            }
+            # Flow support untuk VLESS (user's improvement)
+            flow = account.get('flow')
+            if flow:
+                user_config["flow"] = flow
+                
+            outbound['settings'] = {
+                "vnext": [{
+                    "address": account.get('server', ''),
+                    "port": int(account.get('server_port', 443)),
+                    "users": [user_config]
+                }]
+            }
+            
+        elif protocol_name == 'vmess':
+            user_config = {
+                "id": account.get('uuid', account.get('user_id', ''))
+            }
+            # VMess specific settings (user's improvement)
+            alter_id = account.get('alter_id', account.get('alterId'))
+            if alter_id is not None:
+                user_config["alterId"] = int(alter_id)
+            
+            encryption = account.get('encryption')
+            if encryption:
+                user_config["encryption"] = encryption
+                
+            outbound['settings'] = {
+                "vnext": [{
+                    "address": account.get('server', ''),
+                    "port": int(account.get('server_port', 443)),
+                    "users": [user_config]
+                }]
+            }
+            
+        elif protocol_name == 'trojan':
+            server_config = {
+                "address": account.get('server', ''),
+                "port": int(account.get('server_port', 443)),
+                "password": account.get('password', account.get('user_id', ''))
+            }
+            # Flow support untuk Trojan (user's improvement)
+            flow = account.get('flow')
+            if flow:
+                server_config["flow"] = flow
+                
+            outbound['settings'] = {
+                "servers": [server_config]
+            }
+            
+        elif protocol_name == 'shadowsocks':
+            server_config = {
+                "address": account.get('server', ''),
+                "port": int(account.get('server_port', 443)),
+                "method": account.get('method', 'aes-256-gcm'),
+                "password": account.get('password', '')
+            }
+            outbound['settings'] = {
+                "servers": [server_config]
+            }
+        else:
+            print(f"❌ Unsupported protocol: {protocol}")
+            return None
         
         return {
             "log": {"loglevel": "warning"},
@@ -235,16 +282,20 @@ class RealGeolocationTester:
     
     def test_real_location(self, account):
         """
-        Test VPN connection dan dapatkan real geolocation
-        Menggunakan metode user yang sudah proven working
+        USER'S SIMPLIFIED METHOD: Menggunakan approach seperti standalone script
+        
+        Testing priority:
+        1. IP dari path → direct lookup  
+        2. SNI/Host berbeda dari address → direct lookup
+        3. Fallback → actual VPN proxy method
         """
         try:
-            # Get lookup target berdasarkan priority user
+            # Get lookup target dengan user's simplified method
             lookup_target, method = self.get_lookup_target(account)
             
             # Jika ada lookup target (IP/SNI/Host), test langsung
-            if lookup_target and method != "proxy":
-                print(f"🔍 Direct lookup using {method}: {lookup_target}")
+            if lookup_target and "proxy" not in method.lower():
+                print(f"🔍 Direct geolocation lookup: {lookup_target} ({method})")
                 geo_data = self._get_geo_data(lookup_target)
                 if geo_data and geo_data.get('status') == 'success':
                     return {
@@ -255,12 +306,12 @@ class RealGeolocationTester:
                         'org': geo_data.get('org', 'N/A'),
                         'ip': geo_data.get('query', lookup_target),
                         'method': f"Direct {method}",
-                        'latency': 0  # No connection test needed
+                        'latency': 0  # Direct lookup = no connection test
                     }
             
-            # Fallback: Test dengan actual VPN connection (user's method)
+            # Fallback: Test dengan actual VPN connection (user's proven method)
             print("🔍 Testing with actual VPN connection...")
-            return self._test_with_proxy(account)
+            return self._test_with_actual_vpn_connection(account)
             
         except Exception as e:
             print(f"❌ Real location test error: {e}")
@@ -377,7 +428,7 @@ class RealGeolocationTester:
             print(f"❌ Failed to resolve domain: {target}")
             return None
     
-    def _test_with_proxy(self, account):
+    def _test_with_actual_vpn_connection(self, account):
         """Test dengan actual VPN connection seperti metode user"""
         if not os.path.exists(self.xray_path):
             print(f"⚠️  Xray not found at {self.xray_path}, skipping proxy test")
