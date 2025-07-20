@@ -75,6 +75,10 @@ def build_final_accounts(successful_results, custom_servers=None):
     if custom_servers:
         server_assignments = generate_server_assignments(successful_results, custom_servers)
         print(f"🔄 Config: Applying server replacement dengan {len(custom_servers)} servers")
+        print(f"🔄 Config: Custom servers = {custom_servers}")
+        print(f"🔄 Config: Server assignments = {server_assignments}")
+    else:
+        print(f"🔄 Config: No custom servers found - using original servers")
     
     for i, res in enumerate(successful_results):
         account_obj = res["OriginalAccount"].copy()  # Copy untuk avoid mutation
@@ -89,6 +93,9 @@ def build_final_accounts(successful_results, custom_servers=None):
             new_server = server_assignments[i]
             account_obj['server'] = new_server
             print(f"🔄 Config: Account {i+1} server {original_server} → {new_server}")
+            print(f"🔄 Config: Updated account server field = {account_obj.get('server')}")
+        else:
+            print(f"🔄 Config: Account {i+1} keeping original server = {account_obj.get('server')}")
         
         # 🔄 RESTORE original domain values (yang di-clean untuk testing)
         restore_original_domains_for_config(account_obj)

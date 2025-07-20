@@ -265,7 +265,10 @@ def handle_start_testing():
                 # Auto-generate configuration if we have successful accounts
                 if successful_accounts:
                     try:
-                        final_accounts_to_inject = build_final_accounts(successful_accounts)
+                        # Use custom servers jika ada
+                        custom_servers = session_data.get('custom_servers')
+                        print(f"🔄 Auto-generate: Using custom servers = {custom_servers}")
+                        final_accounts_to_inject = build_final_accounts(successful_accounts, custom_servers)
                         fresh_template_data = load_template(TEMPLATE_FILE)
                         final_config_data = inject_outbounds_to_template(fresh_template_data, final_accounts_to_inject)
                         final_config_str = json.dumps(final_config_data, indent=2, ensure_ascii=False)

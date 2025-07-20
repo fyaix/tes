@@ -43,10 +43,10 @@ class RealGeolocationTester:
         if not domain or not server:
             return domain
             
-        # Jika sama persis, biarkan saja (return None untuk skip)
+        # Jika sama persis, tetap test (user request: jangan skip)
         if domain == server:
-            print(f"🔧 Testing: Skip domain {domain} (sama dengan server)")
-            return None
+            print(f"🔧 Testing: Same domain {domain} - will test as-is (user preference)")
+            return domain
             
         # Case 1: Domain mengandung server sebagai PREFIX (user's example)
         # quiz.int.vidio.com.admin.ari-andika2.site → admin.ari-andika2.site
@@ -148,8 +148,8 @@ class RealGeolocationTester:
                 return cleaned_host, "cleaned Host"
         
         # JANGAN PERNAH test server field - return None untuk fallback ke proxy method
-        print("⚠️  No valid lookup target found after cleaning, will use proxy method")
-        return None, "proxy"
+        print("⚠️  No valid lookup target found after cleaning, will use actual VPN proxy method")
+        return None, "actual VPN proxy"
     
     def create_xray_config(self, account):
         """Create Xray config untuk testing - adapted dari user's method"""
