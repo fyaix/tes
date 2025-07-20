@@ -31,18 +31,18 @@ class RealGeolocationTester:
     
     def clean_domain_from_server_for_testing(self, domain, server):
         """
-        MODIFIED TES8 METHOD: Complete domain cleaning + user latest request
+        USER CLARIFICATION: Remove server part dari SNI/Host untuk testing
         
         Examples:
-        1. server="example.com", domain="sg.example.com" → return "sg" (suffix cleaning)
-        2. server="quiz.int.vidio.com", domain="quiz.int.vidio.com.admin.site" → return "admin.site" (prefix cleaning)
+        1. server="tod.com", domain="tod.com.do-v3.bhm69.site" → return "do-v3.bhm69.site" (remove prefix)
+        2. server="example.com", domain="sg.example.com" → return "sg" (remove suffix)
         3. server="example.com", domain="example.com" → return "example.com" (sama persis, TETAP TEST)
         4. server="example.com", domain="different.net" → return "different.net" (berbeda total)
         
-        MODIFIED TES8 LOGIC:
-        - Sama persis → TETAP TEST (return domain) - USER REQUEST
-        - Ada prefix server → Extract suffix (user's example case)
-        - Ada suffix server → Extract prefix (classic case)
+        USER REQUEST LOGIC:
+        - Sama persis → TETAP TEST (return domain)
+        - Ada prefix server → REMOVE server, return remaining part
+        - Ada suffix server → REMOVE server, return prefix part  
         - Berbeda total → Keep as-is
         """
         if not domain or not server:
@@ -53,20 +53,20 @@ class RealGeolocationTester:
             print(f"🔧 MODIFIED TES8: Same domain {domain} - WILL TEST (user preference: don't skip)")
             return domain
             
-        # MODIFIED TES8: Handle COMPLEX SUBDOMAIN case (user's new example)
-        # tod.com.do-v3.bhm69.site with server=tod.com → extract tod.com (subdomain)
-        # This happens when domain contains server as prefix followed by longer domain
+        # USER CLARIFICATION: Remove server part dari SNI/Host
+        # Example: server=tod.com, domain=tod.com.do-v3.bhm69.site → return do-v3.bhm69.site
         if server in domain and domain != server:
-            # Case 1: server is exact prefix with dot separator
+            # Case 1: server is prefix - REMOVE server part, keep remaining
             if domain.startswith(server + '.'):
-                # Extract the server part (subdomain extraction)
-                print(f"🔧 MODIFIED TES8: Extract subdomain {domain} → {server} (subdomain from complex domain)")
-                return server
-            # Case 2: server is exact suffix with dot separator  
+                # Remove server prefix, return remaining part
+                remaining = domain[len(server + '.'):]
+                print(f"🔧 USER REQUEST: Remove server part {domain} → {remaining} (removed prefix {server})")
+                return remaining
+            # Case 2: server is suffix - REMOVE server part, keep prefix  
             elif domain.endswith('.' + server):
-                # Extract prefix sebelum server domain (classic case)
+                # Remove server suffix, return prefix part
                 prefix = domain[:-len('.' + server)]
-                print(f"🔧 MODIFIED TES8: Clean {domain} → {prefix} (removed suffix {server})")
+                print(f"🔧 USER REQUEST: Remove server part {domain} → {prefix} (removed suffix {server})")
                 return prefix
         
         # MODIFIED TES8: Jika berbeda total, keep as-is
