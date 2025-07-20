@@ -31,25 +31,25 @@ class RealGeolocationTester:
     
     def clean_domain_from_server_for_testing(self, domain, server):
         """
-        TES8 METHOD: Clean domain dari server part (METODE PALING BENAR)
+        MODIFIED TES8 METHOD: TES8 + user latest request (don't skip same domains)
         
         Examples:
         1. server="example.com", domain="sg.example.com" → return "sg" (extract prefix)
-        2. server="example.com", domain="example.com" → return None (sama persis, skip)
+        2. server="example.com", domain="example.com" → return "example.com" (sama persis, TETAP TEST)
         3. server="example.com", domain="different.net" → return "different.net" (berbeda total)
         
-        LOGIC TES8 (BENAR):
-        - Sama persis → Skip (return None)
-        - Ada suffix server → Extract prefix
-        - Berbeda total → Keep as-is
+        MODIFIED TES8 LOGIC:
+        - Sama persis → TETAP TEST (return domain) - USER REQUEST
+        - Ada suffix server → Extract prefix (TES8 method)
+        - Berbeda total → Keep as-is (TES8 method)
         """
         if not domain or not server:
             return domain
             
-        # TES8: Jika sama persis, skip testing (return None)
+        # MODIFIED TES8: Jika sama persis, tetap test (user latest request)
         if domain == server:
-            print(f"🔧 TES8: Same domain {domain} - SKIP (user preference from tes8)")
-            return None
+            print(f"🔧 MODIFIED TES8: Same domain {domain} - WILL TEST (user preference: don't skip)")
+            return domain
             
         # TES8: Jika mengandung server sebagai suffix, extract prefix
         if domain.endswith('.' + server):
@@ -88,15 +88,16 @@ class RealGeolocationTester:
     
     def get_lookup_target(self, account):
         """
-        TES8 METHOD: Metode testing paling benar (from branch tes8)
+        MODIFIED TES8 METHOD: TES8 method + user latest request
         
         Priority logic:
         1. IP dari path (direct geolocation - highest priority)
-        2. SNI dengan TES8 cleaning (skip sama, extract prefix, keep berbeda)
-        3. Host dengan TES8 cleaning (skip sama, extract prefix, keep berbeda)
+        2. SNI dengan MODIFIED TES8 cleaning (TETAP TEST sama, extract prefix, keep berbeda)
+        3. Host dengan MODIFIED TES8 cleaning (TETAP TEST sama, extract prefix, keep berbeda)
         4. Fallback: actual VPN proxy method
         
-        TES8 LOGIC: Domain sama di-skip, subdomain di-extract, berbeda total keep as-is
+        MODIFIED TES8 LOGIC: Domain sama TETAP DITEST, subdomain di-extract, berbeda total keep as-is
+        USER REQUEST: "jika host/sni sama persis dengan server maka test saja itu jangan diskip"
         """
         # Extract details in user's format
         address = account.get('server', '')
@@ -132,19 +133,27 @@ class RealGeolocationTester:
         
         print(f"🔍 Raw values - Address: {address}, SNI: {sni}, Host: {host}")
         
-        # 🎯 PRIORITY #2: SNI dengan TES8 cleaning (metode paling benar)
+        # 🎯 PRIORITY #2: SNI dengan MODIFIED TES8 cleaning (domain sama tetap ditest)
         if sni:
             cleaned_sni = self.clean_domain_from_server_for_testing(sni, address)
-            if cleaned_sni:  # Not None (domain sama akan return None dan di-skip)
-                print(f"🎯 TES8: Using cleaned SNI for lookup: {cleaned_sni}")
-                return cleaned_sni, "cleaned SNI"
+            if cleaned_sni:  # Will include same domains (user request: don't skip)
+                if cleaned_sni == address:
+                    print(f"🎯 MODIFIED TES8: Using same SNI for testing: {cleaned_sni} (don't skip)")
+                    return cleaned_sni, "same SNI (tested)"
+                else:
+                    print(f"🎯 MODIFIED TES8: Using cleaned SNI for lookup: {cleaned_sni}")
+                    return cleaned_sni, "cleaned SNI"
         
-        # 🎯 PRIORITY #3: Host dengan TES8 cleaning (metode paling benar)
+        # 🎯 PRIORITY #3: Host dengan MODIFIED TES8 cleaning (domain sama tetap ditest)
         if host:
             cleaned_host = self.clean_domain_from_server_for_testing(host, address)
-            if cleaned_host:  # Not None (domain sama akan return None dan di-skip)
-                print(f"🎯 TES8: Using cleaned Host for lookup: {cleaned_host}")
-                return cleaned_host, "cleaned Host"
+            if cleaned_host:  # Will include same domains (user request: don't skip)
+                if cleaned_host == address:
+                    print(f"🎯 MODIFIED TES8: Using same Host for testing: {cleaned_host} (don't skip)")
+                    return cleaned_host, "same Host (tested)"
+                else:
+                    print(f"🎯 MODIFIED TES8: Using cleaned Host for lookup: {cleaned_host}")
+                    return cleaned_host, "cleaned Host"
         
         # 🎯 FALLBACK: Actual VPN proxy method
         print("🎯 Using actual VPN proxy method (no direct lookup target)")
