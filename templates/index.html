@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>VortexVPN Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#0D1117">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="vortex-logo">
+                <div class="vortex-ring"></div>
+                <div class="vortex-ring"></div>
+                <div class="vortex-ring"></div>
+            </div>
+            <h2>VortexVPN Manager</h2>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="app hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="vortex-icon"></div>
+                    <h1>VortexVPN</h1>
+                </div>
+                <div class="status-indicator" id="status-indicator">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Ready</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <button class="nav-btn active" data-section="setup">
+                <i class="icon-setup"></i>
+                <span>Setup</span>
+            </button>
+            <button class="nav-btn" data-section="accounts">
+                <i class="icon-accounts"></i>
+                <span>Accounts</span>
+            </button>
+            <button class="nav-btn" data-section="testing">
+                <i class="icon-testing"></i>
+                <span>Testing</span>
+            </button>
+            <button class="nav-btn" data-section="results">
+                <i class="icon-results"></i>
+                <span>Results</span>
+            </button>
+            <button class="nav-btn" data-section="export">
+                <i class="icon-export"></i>
+                <span>Export</span>
+            </button>
+        </nav>
+
+        <!-- Content Sections -->
+        <main class="main">
+            <!-- Setup Section -->
+            <section id="setup" class="section active">
+                <div class="section-header">
+                    <h2>Configuration Setup</h2>
+                    <p>Configure GitHub integration and load initial configuration</p>
+                </div>
+
+                <!-- GitHub Setup -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>GitHub Integration</h3>
+                        <span class="badge" id="github-status">Not Configured</span>
+                    </div>
+                    <div class="card-content">
+                        <div class="form-group">
+                            <label for="github-token">GitHub Token</label>
+                            <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
+                        </div>
+                        <div class="form-group">
+                            <label for="github-owner">Repository Owner</label>
+                            <input type="text" id="github-owner" placeholder="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="github-repo">Repository Name</label>
+                            <input type="text" id="github-repo" placeholder="repository">
+                        </div>
+                        <button class="btn btn-primary" id="setup-github-btn">
+                            <span class="btn-text">Configure GitHub</span>
+                            <div class="btn-loader hidden"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Config Source -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Configuration Source</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="radio-group">
+                            <label class="radio-option">
+                                <input type="radio" name="config-source" value="local" checked>
+                                <span class="radio-custom"></span>
+                                <span class="radio-label">
+                                    <strong>Local Template</strong>
+                                    <small>Use local template.json file</small>
+                                </span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="config-source" value="github">
+                                <span class="radio-custom"></span>
+                                <span class="radio-label">
+                                    <strong>GitHub Repository</strong>
+                                    <small>Load from GitHub repository</small>
+                                </span>
+                            </label>
+                        </div>
+
+                        <!-- GitHub File Selection -->
+                        <div id="github-file-selection" class="hidden">
+                            <div class="form-group">
+                                <label for="github-files">Select Configuration File</label>
+                                <select id="github-files">
+                                    <option value="">Loading...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" id="load-config-btn">
+                            <span class="btn-text">Load Configuration</span>
+                            <div class="btn-loader hidden"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="card" id="setup-status" style="display: none;">
+                    <div class="card-content">
+                        <div class="status-message" id="setup-status-message"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Accounts Section -->
+            <section id="accounts" class="section">
+                <div class="section-header">
+                    <h2>VPN Accounts</h2>
+                    <p>Add new VPN links and manage existing accounts</p>
+                </div>
+
+                <!-- Add Links -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Add VPN Links</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="form-group">
+                            <label for="vpn-links">Paste VPN Links</label>
+                            <textarea 
+                                id="vpn-links" 
+                                placeholder="Paste your VPN links here (vless://, trojan://, ss://)"
+                                rows="8"
+                            ></textarea>
+                            <small>Supported: VLESS, Trojan, Shadowsocks</small>
+                        </div>
+                        <button class="btn btn-primary" id="parse-links-btn">
+                            <span class="btn-text">Parse Links</span>
+                            <div class="btn-loader hidden"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Account Summary -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Account Summary</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-value" id="total-accounts">0</span>
+                                <span class="stat-label">Total Accounts</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="vless-count">0</span>
+                                <span class="stat-label">VLESS</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="trojan-count">0</span>
+                                <span class="stat-label">Trojan</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="ss-count">0</span>
+                                <span class="stat-label">Shadowsocks</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card" id="recent-activity" style="display: none;">
+                    <div class="card-header">
+                        <h3>Recent Activity</h3>
+                    </div>
+                    <div class="card-content">
+                        <div id="activity-log"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Testing Section -->
+            <section id="testing" class="section">
+                <div class="section-header">
+                    <h2>Network Testing</h2>
+                    <p>Test VPN accounts for connectivity and performance</p>
+                </div>
+
+                <!-- Testing Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Test Configuration</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="test-info">
+                            <div class="test-stat">
+                                <span class="test-value" id="test-total">0</span>
+                                <span class="test-label">Accounts to Test</span>
+                            </div>
+                            <div class="test-stat">
+                                <span class="test-value">5</span>
+                                <span class="test-label">Concurrent Tests</span>
+                            </div>
+                            <div class="test-stat">
+                                <span class="test-value">3</span>
+                                <span class="test-label">Max Retries</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-success btn-large" id="start-testing-btn">
+                            <span class="btn-text">Start Testing</span>
+                            <div class="btn-loader hidden"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress -->
+                <div class="card" id="testing-progress" style="display: none;">
+                    <div class="card-header">
+                        <h3>Testing Progress</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="progress-info">
+                            <span id="progress-text">0 / 0 accounts tested</span>
+                            <span id="progress-percent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <div class="test-stats">
+                            <div class="test-stat-item success">
+                                <span id="successful-count">0</span>
+                                <span>Successful</span>
+                            </div>
+                            <div class="test-stat-item failed">
+                                <span id="failed-count">0</span>
+                                <span>Failed</span>
+                            </div>
+                            <div class="test-stat-item testing">
+                                <span id="testing-count">0</span>
+                                <span>Testing</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Results -->
+                <div class="card" id="live-results" style="display: none;">
+                    <div class="card-header">
+                        <h3>Live Results</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="results-container" id="results-container">
+                            <!-- Results will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="results" class="section">
+                <div class="section-header">
+                    <h2>Test Results</h2>
+                    <p>View detailed results and successful connections</p>
+                </div>
+
+                <!-- Results Summary -->
+                <div class="card" id="results-summary" style="display: none;">
+                    <div class="card-header">
+                        <h3>Summary</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="summary-stats">
+                            <div class="summary-item">
+                                <span class="summary-value" id="summary-successful">0</span>
+                                <span class="summary-label">Successful</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-value" id="summary-failed">0</span>
+                                <span class="summary-label">Failed</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-value" id="summary-avg-latency">0ms</span>
+                                <span class="summary-label">Avg Latency</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Results -->
+                <div class="card" id="detailed-results" style="display: none;">
+                    <div class="card-header">
+                        <h3>Detailed Results</h3>
+                        <div class="filter-controls">
+                            <select id="filter-status">
+                                <option value="all">All Results</option>
+                                <option value="successful">Successful Only</option>
+                                <option value="failed">Failed Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="results-table-container">
+                            <div id="results-table"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Export Section -->
+            <section id="export" class="section">
+                <div class="section-header">
+                    <h2>Export Configuration</h2>
+                    <p>Generate and download the final VPN configuration</p>
+                </div>
+
+                <!-- Generate Config -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Generate Configuration</h3>
+                    </div>
+                    <div class="card-content">
+                        <p>Generate a sing-box configuration file with successful VPN accounts.</p>
+                        <button class="btn btn-primary" id="generate-config-btn">
+                            <span class="btn-text">Generate Config</span>
+                            <div class="btn-loader hidden"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Download Options -->
+                <div class="card" id="download-options" style="display: none;">
+                    <div class="card-header">
+                        <h3>Download Options</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="download-buttons">
+                            <button class="btn btn-success" id="download-config-btn">
+                                <i class="icon-download"></i>
+                                <span>Download Config</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GitHub Upload -->
+                <div class="card" id="github-upload" style="display: none;">
+                    <div class="card-header">
+                        <h3>Upload to GitHub</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="form-group">
+                            <label for="commit-message">Commit Message</label>
+                            <input type="text" id="commit-message" value="Update VPN configuration" placeholder="Enter commit message">
+                        </div>
+                        <button class="btn btn-primary" id="upload-github-btn">
+                            <span class="btn-text">Upload to GitHub</span>
+                            <div class="btn-loader hidden"></div>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" class="toast-container"></div>
+
+        <!-- Bottom Sheet (Mobile) -->
+        <div class="bottom-sheet" id="bottom-sheet">
+            <div class="bottom-sheet-header">
+                <div class="bottom-sheet-handle"></div>
+            </div>
+            <div class="bottom-sheet-content" id="bottom-sheet-content">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

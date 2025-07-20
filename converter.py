@@ -1,6 +1,7 @@
 import base64
 from urllib.parse import urlparse, parse_qs, unquote
 import re
+import socket
 
 def is_alive(host, port=443):
     try:

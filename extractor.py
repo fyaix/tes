@@ -11,28 +11,33 @@ def extract_path_from_plugin_opts(opts_string: str) -> str | None:
         return match.group(1)
     return None
 
-def extract_accounts_from_config(config_data: dict) -> list[dict]:
+def extract_accounts_from_config(config_data):
     """
-    Ekstrak semua akun dari config dan tambahkan _ws_path/_ss_path jika ada.
+    Extract VPN accounts from a sing-box configuration file.
+    
+    Args:
+        config_data (dict): The loaded configuration data
+        
+    Returns:
+        list: List of VPN account configurations
     """
-    accounts = []
     if not isinstance(config_data, dict):
         return []
-    for outbound in config_data.get("outbounds", []):
-        if outbound.get("type") in VALID_ACCOUNT_TYPES:
-            # Shadowsocks
-            if outbound.get("type") == "shadowsocks":
-                plugin_opts = outbound.get("plugin_opts", "")
-                path = extract_path_from_plugin_opts(plugin_opts)
-                if path:
-                    outbound["_ss_path"] = path
-            # VLESS/trojan ws
-            elif outbound.get("type") in ("vless", "trojan"):
-                transport = outbound.get("transport", {})
-                if isinstance(transport, dict) and transport.get("type") == "ws":
-                    path = transport.get("path", "")
-                    if path:
-                        outbound["_ws_path"] = path
+    
+    outbounds = config_data.get('outbounds', [])
+    if not isinstance(outbounds, list):
+        return []
+    
+    # Filter for VPN-type outbounds
+    vpn_types = ['vless', 'trojan', 'shadowsocks', 'vmess']
+    accounts = []
+    
+    for outbound in outbounds:
+        if isinstance(outbound, dict) and outbound.get('type') in vpn_types:
+            # Skip selector outbounds and other non-server outbounds
+            if 'outbounds' in outbound or outbound.get('tag') in ['direct', 'block', 'dns-out']:
+                continue
+            
             accounts.append(outbound)
-    print(f"✔️ Ditemukan dan diproses {len(accounts)} akun dari file konfigurasi.")
+    
     return accounts
