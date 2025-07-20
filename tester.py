@@ -72,11 +72,11 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
         # === LOGIKA BARU ===
         test_ip, test_port, test_source = get_test_target(account)
         if not test_ip:
-            result['Status'] = '✖ (No valid IP/host)'
+            result['Status'] = '❌'
             return result
 
         for attempt in range(MAX_RETRIES):
-            result['Status'] = 'Testing...'
+            result['Status'] = '🔄'
             result['Retry'] = attempt
             if live_results is not None:
                 live_results[index].update(result)
@@ -86,7 +86,7 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
             if is_conn:
                 geo_info = geoip_lookup(test_ip)
                 result.update({
-                    "Status": "●",
+                    "Status": "✅",
                     "TestType": f"{test_source.upper()} TCP",
                     "Tested IP": test_ip,
                     "Latency": latency,
@@ -100,7 +100,7 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                 return result
 
             if attempt < MAX_RETRIES - 1:
-                result['Status'] = f"Retry({attempt+1})"
+                result['Status'] = '🔁'
                 result['Retry'] = attempt+1
                 if live_results is not None:
                     live_results[index].update(result)
@@ -109,17 +109,17 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
 
         # Fallback ping jika TCP gagal semua
         for attempt in range(MAX_RETRIES):
-            result['Status'] = 'Testing...'
+            result['Status'] = '🔄'
             result['Retry'] = attempt
             if live_results is not None:
                 live_results[index].update(result)
-                await asyncio.sleep(0)
+                await asyncio.sleep(0)  # yield to event loop
 
             stats = get_network_stats(test_ip)
             if stats.get("Latency") != -1:
                 geo_info = geoip_lookup(test_ip)
                 result.update({
-                    "Status": "●",
+                    "Status": "✅",
                     "TestType": f"{test_source.upper()} Ping",
                     "Tested IP": test_ip,
                     **stats,
@@ -131,15 +131,16 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                 return result
 
             if attempt < MAX_RETRIES - 1:
-                result['Status'] = f"Retry({attempt+1})"
+                result['Status'] = '🔁'
                 result['Retry'] = attempt+1
                 if live_results is not None:
                     live_results[index].update(result)
                     await asyncio.sleep(0)
                 await asyncio.sleep(RETRY_DELAY)
 
-    result['Status'] = '✖'
-    result['Retry'] = MAX_RETRIES
+        # Semua cara sudah dicoba, masih gagal
+        result['Status'] = '❌'
+        result['Retry'] = MAX_RETRIES
     # Update live_results for failed case
     if live_results is not None:
         live_results[index].update(result)

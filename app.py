@@ -215,11 +215,9 @@ def handle_start_testing():
                 def update_loop():
                     while True:
                         time.sleep(1)  # Update every second
-                        completed = len([res for res in live_results if res["Status"] != "WAIT" and not res["Status"].startswith("Testing") and not res["Status"].startswith("Retry")])
                         
-                        # Check if testing is done
-                        if completed >= len(live_results):
-                            break
+                        # Better status detection - exclude only WAIT status
+                        completed = len([res for res in live_results if res["Status"] not in ["WAIT", "🔄", "🔁"]])
                         
                         try:
                             data_to_send = {
@@ -227,10 +225,15 @@ def handle_start_testing():
                                 'total': len(live_results),
                                 'completed': completed
                             }
-                            print(f"Emitting update: {completed}/{len(live_results)} completed")
+                            print(f"Emitting periodic update: {completed}/{len(live_results)} completed")
                             socketio.emit('testing_update', data_to_send)
                         except Exception as e:
                             print(f"Update emit error: {e}")
+                            break
+                        
+                        # Check if testing is done - but continue a bit more to ensure final states
+                        if completed >= len(live_results):
+                            time.sleep(2)  # Give extra time for final status updates
                             break
                 
                 thread = threading.Thread(target=update_loop, daemon=True)
@@ -245,7 +248,7 @@ def handle_start_testing():
                 await test_all_accounts(session_data['all_accounts'], semaphore, live_results)
                 
                 # Count successful accounts
-                successful_accounts = [res for res in live_results if res["Status"] == "●"]
+                successful_accounts = [res for res in live_results if res["Status"] == "✅"]
                 
                 # Sort by priority
                 successful_accounts.sort(key=sort_priority)
@@ -276,6 +279,25 @@ def handle_start_testing():
                             'success': False,
                             'error': str(e)
                         })
+                
+                # Force final status update to ensure all accounts show final state
+                print(f"Final status update: forcing all pending accounts to complete")
+                for res in live_results:
+                    if res["Status"] in ["🔄", "🔁", "WAIT"]:
+                        # If still in testing state, mark as failed or timeout
+                        res["Status"] = "❌"
+                        res["Latency"] = "Timeout"
+                        print(f"Forcing completion for account {res.get('index', 'unknown')}: {res.get('VpnType', 'unknown')}")
+                
+                # Emit one final update with corrected statuses
+                final_completed = len([res for res in live_results if res["Status"] not in ["WAIT", "🔄", "🔁"]])
+                final_data = {
+                    'results': [dict(res) for res in live_results],
+                    'total': len(live_results),
+                    'completed': final_completed
+                }
+                print(f"Emitting final testing update: {final_completed}/{len(live_results)} completed")
+                socketio.emit('testing_update', final_data)
                 
                 # Emit final results
                 socketio.emit('testing_complete', {

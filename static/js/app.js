@@ -620,7 +620,9 @@ function updateTestingProgress(data) {
         return;
     }
     
-    const completed = data.results.filter(r => r.Status !== 'WAIT' && !r.Status.startsWith('Testing') && !r.Status.startsWith('Retry')).length;
+    // Better status detection - exclude only pending states
+    const pendingStates = ['WAIT', '🔄', '🔁'];
+    const completed = data.results.filter(r => !pendingStates.includes(r.Status)).length;
     const total = data.total || data.results.length;
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     
@@ -630,10 +632,10 @@ function updateTestingProgress(data) {
     document.getElementById('progress-text').textContent = `${completed} / ${total} accounts tested`;
     document.getElementById('progress-percent').textContent = `${percentage}%`;
     
-    // Count stats
-    const successful = data.results.filter(r => r.Status === '●').length;
-    const failed = data.results.filter(r => r.Status.startsWith('✖')).length;
-    const testing = data.results.filter(r => r.Status.startsWith('Testing') || r.Status.startsWith('Retry')).length;
+    // Count stats - use emoji status
+    const successful = data.results.filter(r => r.Status === '✅' || r.Status === '●').length;
+    const failed = data.results.filter(r => r.Status === '❌' || r.Status.startsWith('✖')).length;
+    const testing = data.results.filter(r => pendingStates.includes(r.Status)).length;
     
     updateTestStats(successful, failed, testing);
     
@@ -762,11 +764,12 @@ function getStatusClass(status) {
 
 // Get status text for display
 function getStatusText(status) {
-    if (status === '●') return '✅';
-    if (status.startsWith('✖')) return '❌';
-    if (status.startsWith('Testing')) return '🔄';
-    if (status.startsWith('Retry')) return '🔁';
-    if (status === 'WAIT') return '⏳';
+    // Handle both old and new status formats
+    if (status === '●' || status === '✅') return '✅';
+    if (status.startsWith('✖') || status === '❌') return '❌';
+    if (status.startsWith('Testing') || status === '🔄') return '🔄';
+    if (status.startsWith('Retry') || status === '🔁') return '🔁';
+    if (status === 'WAIT' || status === '⏳') return '⏳';
     return status;
 }
 
