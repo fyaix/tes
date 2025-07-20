@@ -60,17 +60,81 @@ async def test_all_accounts(accounts: list, semaphore, live_results):
         results.append(result)
     return results
 
-def build_final_accounts(successful_results):
+def build_final_accounts(successful_results, custom_servers=None):
+    """
+    Build final accounts untuk config dengan optional server replacement
+    
+    Args:
+        successful_results: Test results yang successful
+        custom_servers: Optional list server baru untuk replacement
+    """
     final_accounts = []
+    
+    # Jika ada custom servers, buat random distribution
+    server_assignments = None
+    if custom_servers:
+        server_assignments = generate_server_assignments(successful_results, custom_servers)
+        print(f"🔄 Config: Applying server replacement dengan {len(custom_servers)} servers")
+    
     for i, res in enumerate(successful_results):
-        account_obj = res["OriginalAccount"]
+        account_obj = res["OriginalAccount"].copy()  # Copy untuk avoid mutation
         country = res["Country"]
         provider = clean_provider_name(res["Provider"])
         tag = f"{country} {provider} -{i+1}"
         tag = " ".join(tag.split())  # Hilangkan spasi ganda
+        
+        # 🔄 APPLY SERVER REPLACEMENT untuk config final (bukan testing)
+        if server_assignments and i < len(server_assignments):
+            original_server = account_obj.get('server', '')
+            new_server = server_assignments[i]
+            account_obj['server'] = new_server
+            print(f"🔄 Config: Account {i+1} server {original_server} → {new_server}")
+        
+        # 🔄 RESTORE original domain values (yang di-clean untuk testing)
+        restore_original_domains_for_config(account_obj)
+        
         account_obj["tag"] = tag
         final_accounts.append(clean_account_dict(account_obj))
+    
     return final_accounts
+
+def generate_server_assignments(successful_results, custom_servers):
+    """
+    Generate random server assignments untuk successful accounts
+    """
+    import random
+    
+    account_count = len(successful_results)
+    server_count = len(custom_servers)
+    
+    # Calculate even distribution
+    accounts_per_server = account_count // server_count
+    remainder = account_count % server_count
+    
+    # Create assignment list
+    assignments = []
+    for i, server in enumerate(custom_servers):
+        # Add extra account to first few servers if there's remainder
+        count = accounts_per_server + (1 if i < remainder else 0)
+        assignments.extend([server] * count)
+    
+    # Random shuffle assignments
+    random.shuffle(assignments)
+    
+    print(f"🎲 Generated {account_count} assignments across {server_count} servers")
+    return assignments
+
+def restore_original_domains_for_config(account_obj):
+    """
+    Restore original domain values yang mungkin di-clean untuk testing
+    Pastikan SNI/Host kembali ke nilai asli untuk config final
+    """
+    # Original values sudah tersimpan di account_obj, tidak perlu restore
+    # Karena kita menggunakan copy() di build_final_accounts
+    # Dan testing menggunakan fungsi terpisah yang tidak mengubah original
+    
+    print(f"🔄 Config: Using original domains for {account_obj.get('server', '')}")
+    pass
 
 def load_template(template_file):
     with open(template_file, "r") as f:

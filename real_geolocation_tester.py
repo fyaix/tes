@@ -29,29 +29,56 @@ class RealGeolocationTester:
         ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', path)
         return ip_match.group(0) if ip_match else None
     
-    def clean_domain_from_server(self, domain, server):
+    def clean_domain_from_server_for_testing(self, domain, server):
         """
-        Clean domain dari server part
-        Example: server="example.com", domain="sg.example.com" → return "sg"
+        Clean domain dari server part HANYA UNTUK TESTING
+        Example: server="example.com", domain="sg.example.com" → return "sg"  
         Example: server="example.com", domain="example.com" → return None (sama persis)
+        
+        PENTING: Ini hanya untuk testing, original domain akan di-restore untuk config final
         """
         if not domain or not server:
             return domain
             
         # Jika sama persis, biarkan saja (return None untuk skip)
         if domain == server:
+            print(f"🔧 Testing: Skip domain {domain} (sama dengan server)")
             return None
             
         # Jika domain mengandung server sebagai suffix
         if domain.endswith('.' + server):
-            # Extract prefix sebelum server domain
+            # Extract prefix sebelum server domain HANYA UNTUK TESTING
             prefix = domain[:-len('.' + server)]
-            print(f"🔧 Cleaned domain: {domain} → {prefix} (removed .{server})")
+            print(f"🔧 Testing: Clean {domain} → {prefix} (will restore later)")
             return prefix
         
-        # Jika berbeda total, return as-is
-        print(f"🔧 Domain different from server: {domain} (keep as-is)")
+        # Jika berbeda total, return as-is  
+        print(f"🔧 Testing: Use {domain} as-is (different from server)")
         return domain
+    
+    def restore_original_domain_for_config(self, account):
+        """
+        Restore original domain values untuk config final
+        Kembalikan SNI/Host ke nilai asli setelah testing
+        """
+        # Get original values (yang belum di-clean)
+        original_sni = None
+        original_host = None
+        
+        # Get original SNI from TLS config
+        tls_config = account.get('tls', {})
+        if isinstance(tls_config, dict):
+            original_sni = tls_config.get('sni') or tls_config.get('server_name')
+        
+        # Get original host from transport headers
+        transport = account.get('transport', {})
+        if isinstance(transport, dict):
+            headers = transport.get('headers', {})
+            if isinstance(headers, dict):
+                original_host = headers.get('Host')
+        
+        print(f"🔄 Config: Restored original SNI={original_sni}, Host={original_host}")
+        return original_sni, original_host
     
     def get_lookup_target(self, account):
         """
@@ -94,21 +121,21 @@ class RealGeolocationTester:
         
         print(f"🔍 Raw values - Server: {server}, SNI: {sni}, Host: {host}")
         
-        # 🎯 PRIORITY #2: SNI (dengan domain cleaning)
+        # 🎯 PRIORITY #2: SNI (dengan domain cleaning untuk testing)
         if sni:
-            cleaned_sni = self.clean_domain_from_server(sni, server)
+            cleaned_sni = self.clean_domain_from_server_for_testing(sni, server)
             if cleaned_sni:  # Tidak None dan tidak kosong
-                print(f"🎯 Using cleaned SNI for lookup: {cleaned_sni}")
+                print(f"🎯 Using cleaned SNI for testing: {cleaned_sni} (original: {sni})")
                 return cleaned_sni, "cleaned SNI"
         
-        # 🎯 PRIORITY #3: Host (dengan domain cleaning)
+        # 🎯 PRIORITY #3: Host (dengan domain cleaning untuk testing)
         if host:
-            cleaned_host = self.clean_domain_from_server(host, server)
+            cleaned_host = self.clean_domain_from_server_for_testing(host, server)
             if cleaned_host:  # Tidak None dan tidak kosong
-                print(f"🎯 Using cleaned Host for lookup: {cleaned_host}")
+                print(f"🎯 Using cleaned Host for testing: {cleaned_host} (original: {host})")
                 return cleaned_host, "cleaned Host"
         
-        # JANGAN test server field - return None untuk fallback ke proxy method
+        # JANGAN PERNAH test server field - return None untuk fallback ke proxy method
         print("⚠️  No valid lookup target found after cleaning, will use proxy method")
         return None, "proxy"
     

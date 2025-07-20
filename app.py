@@ -31,7 +31,8 @@ session_data = {
     'test_results': [],
     'final_config': None,
     'github_path': None,
-    'github_sha': None
+    'github_sha': None,
+    'custom_servers': None  # Store custom servers untuk config generation
 }
 
 MAX_CONCURRENT_TESTS = 5
@@ -335,8 +336,9 @@ def generate_config():
         # Sort by priority
         successful_accounts.sort(key=sort_priority)
         
-        # Build final accounts
-        final_accounts_to_inject = build_final_accounts(successful_accounts)
+        # Build final accounts dengan optional server replacement
+        custom_servers = session_data.get('custom_servers')
+        final_accounts_to_inject = build_final_accounts(successful_accounts, custom_servers)
         
         # Load fresh template
         fresh_template_data = load_template(TEMPLATE_FILE)
@@ -466,7 +468,7 @@ def preview_server_replacement():
 
 @app.route('/api/apply-server-replacement', methods=['POST'])
 def apply_server_replacement():
-    """Apply server replacement to VPN accounts"""
+    """Store custom servers untuk config generation (tidak untuk testing)"""
     try:
         data = request.json
         servers_input = data.get('servers', '').strip()
@@ -480,39 +482,22 @@ def apply_server_replacement():
         # Parse servers
         servers = parse_servers_input(servers_input)
         
-        # Generate random distribution and apply
-        import random
-        accounts = session_data['all_accounts']
-        random.shuffle(accounts)
+        # Store servers untuk config generation (BUKAN untuk testing)
+        session_data['custom_servers'] = servers
         
-        # Calculate distribution
-        accounts_per_server = len(accounts) // len(servers)
-        remainder = len(accounts) % len(servers)
-        
-        total_replaced = 0
-        start_idx = 0
-        
-        for i, server in enumerate(servers):
-            # Add extra account to first few servers if there's remainder
-            count = accounts_per_server + (1 if i < remainder else 0)
-            end_idx = start_idx + count
-            
-            # Apply server replacement
-            for account in accounts[start_idx:end_idx]:
-                account['server'] = server
-                total_replaced += 1
-            
-            start_idx = end_idx
+        print(f"🔄 Stored {len(servers)} custom servers untuk config generation")
+        print(f"🔄 Servers: {servers}")
         
         return jsonify({
             'success': True,
-            'message': f'Server addresses updated for {total_replaced} VPN accounts',
-            'total_replaced': total_replaced,
-            'servers_used': len(servers)
+            'message': f'Custom servers stored for config generation. Will be applied to {len(session_data["all_accounts"])} accounts when generating final config.',
+            'total_accounts': len(session_data['all_accounts']),
+            'servers_stored': len(servers),
+            'note': 'Servers will be applied only during config generation, not during testing.'
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': f'Replacement error: {str(e)}'})
+        return jsonify({'success': False, 'message': f'Storage error: {str(e)}'})
 
 def parse_servers_input(servers_input):
     """Parse server input (comma or line separated)"""

@@ -1260,7 +1260,7 @@ async function applyServerReplacement() {
     
     // Show loading
     loader.classList.remove('hidden');
-    text.textContent = '⚡ Applying Changes...';
+    text.textContent = '💾 Storing Servers...';
     btn.disabled = true;
     
     try {
@@ -1284,7 +1284,7 @@ async function applyServerReplacement() {
         
         if (data.success) {
             // Update UI
-            updateReplacementStatus(`Applied to ${data.total_replaced} accounts`);
+            updateReplacementStatus(`Stored ${data.servers_stored} servers`);
             
             // Close preview
             closeReplacementPreview();
@@ -1293,17 +1293,15 @@ async function applyServerReplacement() {
             document.getElementById('replacement-servers').value = '';
             updateReplacementStats();
             
-            // Reload accounts data
-            await loadParsedAccounts();
+            showToast('Servers Stored', data.message, 'info');
             
-            showToast('Replacement Applied', data.message, 'success');
+            // Show info about when servers will be applied
+            setTimeout(() => {
+                showToast('Info', 'Custom servers will be applied when generating final config after testing', 'info');
+            }, 2000);
             
-            // Auto-restart testing with new servers
-            if (confirm('Server replacement applied successfully! Start testing with new servers?')) {
-                startTesting();
-            }
         } else {
-            showToast('Replacement Error', data.message, 'error');
+            showToast('Storage Error', data.message, 'error');
         }
         
     } catch (error) {
@@ -1312,7 +1310,7 @@ async function applyServerReplacement() {
     } finally {
         // Reset button
         loader.classList.add('hidden');
-        text.textContent = '⚡ Apply Replacement';
+        text.textContent = '💾 Store for Config';
         btn.disabled = false;
     }
 }

@@ -184,18 +184,18 @@
                 <!-- Server Replacement -->
                 <div class="card">
                     <div class="card-header">
-                        <h3>🔄 Server Replacement</h3>
+                        <h3>🔄 Server Replacement (Config Only)</h3>
                         <span class="badge" id="server-replace-status">Ready</span>
                     </div>
                     <div class="card-content">
                         <div class="form-group">
-                            <label for="replacement-servers">New Server Addresses</label>
+                            <label for="replacement-servers">Custom Server Addresses for Final Config</label>
                             <textarea 
                                 id="replacement-servers" 
-                                placeholder="Enter new server addresses (one per line or comma separated):&#10;test1.example.com&#10;test2.example.com&#10;or: test1.com, test2.com, test3.com"
+                                placeholder="Enter custom server addresses (one per line or comma separated):&#10;custom1.example.com&#10;custom2.example.com&#10;or: custom1.com, custom2.com, custom3.com"
                                 rows="4"
                             ></textarea>
-                            <small>Multiple servers will be distributed randomly across all VPN accounts</small>
+                            <small>⚠️ These servers will be applied to final config AFTER testing (not during testing)</small>
                         </div>
                         <div class="replacement-stats" id="replacement-stats" style="display: none;">
                             <div class="stats-row">
@@ -219,7 +219,7 @@
                                 <div class="btn-loader hidden"></div>
                             </button>
                             <button class="btn btn-warning" id="apply-replacement-btn" disabled>
-                                <span class="btn-text">⚡ Apply Replacement</span>
+                                <span class="btn-text">💾 Store for Config</span>
                                 <div class="btn-loader hidden"></div>
                             </button>
                         </div>
