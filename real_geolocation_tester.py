@@ -302,41 +302,35 @@ class RealGeolocationTester:
     
     def test_real_location(self, account):
         """
-        USER'S SIMPLIFIED METHOD: Menggunakan approach seperti standalone script
+        USER'S REAL VPN DATA METHOD: Always use VPN proxy testing for accurate data
         
-        Testing priority:
-        1. IP dari path → direct lookup  
-        2. SNI/Host berbeda dari address → direct lookup
-        3. Fallback → actual VPN proxy method
+        Process:
+        1. IP dari path → direct geolocation (if available)
+        2. Domain cleaning → Remove server part dari SNI/Host 
+        3. VPN proxy testing → Use cleaned domains untuk REAL VPN data
+        4. Config restoration → Original domains restored untuk final config
+        
+        USER REQUEST: "saya tu maunya data yang realnya" - always get real VPN server data
         """
         try:
             # Get lookup target dengan user's simplified method
             lookup_target, method = self.get_lookup_target(account)
             
-            # TES8 ENHANCED: Testing dengan CDN avoidance dan smart IP selection
-            if lookup_target and "proxy" not in method.lower():
-                print(f"🔍 TES8 Enhanced testing: {lookup_target} ({method})")
+            # USER REQUEST: Always use VPN proxy testing for REAL data
+            # Domain cleaning untuk testing accuracy, tapi selalu pakai VPN proxy method
+            if lookup_target:
+                print(f"🔍 USER PREFERENCE: Domain cleaned to {lookup_target} ({method})")
+                print(f"🔍 But using VPN proxy testing for REAL VPN data (user request)")
                 
-                # TES8: Use enhanced geolocation dengan CDN avoidance
-                geo_data = self._get_geo_data_enhanced(lookup_target)
-                if geo_data and geo_data.get('status') == 'success':
-                    return {
-                        'success': True,
-                        'country': geo_data.get('countryCode', 'N/A'),
-                        'country_name': geo_data.get('country', 'N/A'),
-                        'isp': geo_data.get('isp', 'N/A'),
-                        'org': geo_data.get('org', 'N/A'),
-                        'ip': geo_data.get('query', lookup_target),
-                        'method': f"TES8 Enhanced {method}",
-                        'latency': 0  # Direct lookup with enhanced resolution
-                    }
-                else:
-                    print(f"⚠️ TES8 Enhanced lookup failed for {lookup_target}, trying VPN proxy...")
-                    # Fallback ke VPN proxy jika enhanced lookup gagal
+                # Store cleaned target for logging, but use VPN proxy for actual testing
+                # This ensures we get REAL VPN server data, not domain registration data
             
-            # Fallback: Test dengan actual VPN connection (user's proven method)
-            print("🔍 Testing with actual VPN connection...")
-            return self._test_with_actual_vpn_connection(account)
+            # USER REQUEST: Always test with actual VPN connection for REAL data
+            print("🔍 Testing with actual VPN connection for REAL VPN data...")
+            
+            # Create modified account dengan cleaned domains for VPN testing
+            modified_account = self._create_account_with_cleaned_domains(account, lookup_target, method)
+            return self._test_with_actual_vpn_connection(modified_account)
             
         except Exception as e:
             print(f"❌ Real location test error: {e}")
@@ -599,6 +593,45 @@ class RealGeolocationTester:
             print(f"❌ TES8: No suitable IP found, all were CDN or failed")
         
         return best_ip, best_geo
+
+    def _create_account_with_cleaned_domains(self, original_account, cleaned_target, method):
+        """
+        USER REQUEST: Create account dengan cleaned domains untuk VPN testing
+        
+        Original: tod.com.do-v3.bhm69.site
+        Cleaned: tod.com  
+        Use cleaned domain untuk VPN testing, restore original untuk config
+        """
+        import copy
+        modified_account = copy.deepcopy(original_account)
+        
+        # Check if SNI/Host different from cleaned target (need domain cleaning applied)
+        original_sni = original_account.get('tls', {}).get('sni')
+        original_host = original_account.get('transport', {}).get('headers', {}).get('Host')
+        
+        if cleaned_target and (original_sni != cleaned_target or original_host != cleaned_target):
+            print(f"🔧 Applying cleaned domain untuk VPN testing:")
+            print(f"   Original SNI: {original_sni}")
+            print(f"   Original Host: {original_host}")
+            print(f"   Cleaned target: {cleaned_target}")
+            
+            # Update TLS SNI untuk testing dengan cleaned domain
+            if 'tls' in modified_account:
+                if 'sni' in modified_account['tls']:
+                    modified_account['tls']['sni'] = cleaned_target
+                if 'server_name' in modified_account['tls']:
+                    modified_account['tls']['server_name'] = cleaned_target
+            
+            # Update transport Host untuk testing dengan cleaned domain
+            if 'transport' in modified_account and 'headers' in modified_account['transport']:
+                if 'Host' in modified_account['transport']['headers']:
+                    modified_account['transport']['headers']['Host'] = cleaned_target
+            
+            print(f"   ✅ Modified untuk testing - SNI: {modified_account.get('tls', {}).get('sni')}, Host: {modified_account.get('transport', {}).get('headers', {}).get('Host')}")
+        else:
+            print(f"🔧 No domain cleaning needed, using original domains untuk VPN testing")
+        
+        return modified_account
 
     def _test_with_actual_vpn_connection(self, account):
         """Test dengan actual VPN connection seperti metode user"""
