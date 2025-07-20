@@ -32,8 +32,11 @@ class RealGeolocationTester:
     def clean_domain_from_server_for_testing(self, domain, server):
         """
         Clean domain dari server part HANYA UNTUK TESTING
-        Example: server="example.com", domain="sg.example.com" → return "sg"  
-        Example: server="example.com", domain="example.com" → return None (sama persis)
+        
+        Examples:
+        1. server="example.com", domain="sg.example.com" → return "sg" (suffix)
+        2. server="quiz.int.vidio.com", domain="quiz.int.vidio.com.admin.site" → return "admin.site" (prefix)
+        3. server="example.com", domain="example.com" → return None (sama persis)
         
         PENTING: Ini hanya untuk testing, original domain akan di-restore untuk config final
         """
@@ -45,11 +48,20 @@ class RealGeolocationTester:
             print(f"🔧 Testing: Skip domain {domain} (sama dengan server)")
             return None
             
-        # Jika domain mengandung server sebagai suffix
+        # Case 1: Domain mengandung server sebagai PREFIX (user's example)
+        # quiz.int.vidio.com.admin.ari-andika2.site → admin.ari-andika2.site
+        if domain.startswith(server + '.'):
+            # Extract suffix setelah server domain
+            suffix = domain[len(server + '.'):]
+            print(f"🔧 Testing: Clean {domain} → {suffix} (removed prefix {server})")
+            return suffix
+            
+        # Case 2: Domain mengandung server sebagai SUFFIX  
+        # sg.example.com → sg (original logic)
         if domain.endswith('.' + server):
-            # Extract prefix sebelum server domain HANYA UNTUK TESTING
+            # Extract prefix sebelum server domain
             prefix = domain[:-len('.' + server)]
-            print(f"🔧 Testing: Clean {domain} → {prefix} (will restore later)")
+            print(f"🔧 Testing: Clean {domain} → {prefix} (removed suffix {server})")
             return prefix
         
         # Jika berbeda total, return as-is  
