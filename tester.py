@@ -95,12 +95,18 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                     **geo_info
                 })
                 
-                # Enhance dengan smart location resolver jika perlu
+                # Enhance dengan real geolocation tester (user's proven method)
                 try:
-                    from location_resolver import enhance_geolocation
-                    result = enhance_geolocation(account, result)
+                    from real_geolocation_tester import get_real_geolocation
+                    real_geo = get_real_geolocation(account)
+                    if real_geo:
+                        # Update dengan real location data
+                        result.update(real_geo)
+                        print(f"✅ Real geolocation: {real_geo['Country']} - {real_geo['Provider']}")
+                    else:
+                        print("⚠️  Real geolocation failed, using basic lookup")
                 except ImportError:
-                    pass  # Fallback ke basic geolocation
+                    print("⚠️  Real geolocation tester not available, using basic lookup")
                 
                 # Update live_results
                 if live_results is not None:
@@ -134,12 +140,18 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                     **geo_info
                 })
                 
-                # Enhance dengan smart location resolver jika perlu
+                # Enhance dengan real geolocation tester (user's proven method)
                 try:
-                    from location_resolver import enhance_geolocation
-                    result = enhance_geolocation(account, result)
+                    from real_geolocation_tester import get_real_geolocation
+                    real_geo = get_real_geolocation(account)
+                    if real_geo:
+                        # Update dengan real location data
+                        result.update(real_geo)
+                        print(f"✅ Real geolocation: {real_geo['Country']} - {real_geo['Provider']}")
+                    else:
+                        print("⚠️  Real geolocation failed, using basic lookup")
                 except ImportError:
-                    pass  # Fallback ke basic geolocation
+                    print("⚠️  Real geolocation tester not available, using basic lookup")
                 
                 # Update live_results
                 if live_results is not None:
