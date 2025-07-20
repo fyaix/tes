@@ -76,13 +76,9 @@ def save_github_config(token, owner, repo):
 
 def get_github_config():
     """Get GitHub configuration."""
-    config_str = get_setting('github_config')
-    if config_str:
-        try:
-            return json.loads(config_str)
-        except:
-            return None
-    return None
+    config = get_setting('github_config')
+    # get_setting already parses JSON, so just return it
+    return config
 
 def save_test_session(results_data):
     """Save test session results."""
