@@ -98,12 +98,46 @@ def build_final_accounts(successful_results, custom_servers=None):
             print(f"🔄 Config: Account {i+1} keeping original server = {account_obj.get('server')}")
         
         # 🔄 RESTORE original domain values (yang di-clean untuk testing)
-        restore_original_domains_for_config(account_obj)
+        # USER REQUEST: "jika sudah ditest maka gabungkan lagi untuk dimasukkan kedalam config"
+        restore_original_domains_for_config(account_obj, res)
         
         account_obj["tag"] = tag
         final_accounts.append(clean_account_dict(account_obj))
     
     return final_accounts
+
+def restore_original_domains_for_config(account_obj, test_result):
+    """
+    USER REQUEST: Restore original domains untuk config final
+    
+    Testing: tod.com.do-v3.bhm69.site → do-v3.bhm69.site (cleaned for testing)
+    Config: Restore → tod.com.do-v3.bhm69.site (original for config)
+    """
+    # Check if we have original account data in test result
+    if "OriginalAccount" in test_result:
+        original_account = test_result["OriginalAccount"]
+        
+        # Restore original SNI
+        original_tls = original_account.get('tls', {})
+        if 'tls' in account_obj and original_tls:
+            if 'sni' in original_tls:
+                account_obj['tls']['sni'] = original_tls['sni']
+                print(f"🔄 Config: Restored original SNI = {original_tls['sni']}")
+            if 'server_name' in original_tls:
+                account_obj['tls']['server_name'] = original_tls['server_name']
+                print(f"🔄 Config: Restored original server_name = {original_tls['server_name']}")
+        
+        # Restore original Host
+        original_transport = original_account.get('transport', {})
+        original_headers = original_transport.get('headers', {}) if original_transport else {}
+        if 'transport' in account_obj and 'headers' in account_obj['transport'] and original_headers:
+            if 'Host' in original_headers:
+                account_obj['transport']['headers']['Host'] = original_headers['Host']
+                print(f"🔄 Config: Restored original Host = {original_headers['Host']}")
+        
+        print(f"🔄 Config: Domain restoration completed for account")
+    else:
+        print(f"⚠️ Config: No original account data found, using current domains")
 
 def generate_server_assignments(successful_results, custom_servers):
     """
@@ -131,17 +165,7 @@ def generate_server_assignments(successful_results, custom_servers):
     print(f"🎲 Generated {account_count} assignments across {server_count} servers")
     return assignments
 
-def restore_original_domains_for_config(account_obj):
-    """
-    Restore original domain values yang mungkin di-clean untuk testing
-    Pastikan SNI/Host kembali ke nilai asli untuk config final
-    """
-    # Original values sudah tersimpan di account_obj, tidak perlu restore
-    # Karena kita menggunakan copy() di build_final_accounts
-    # Dan testing menggunakan fungsi terpisah yang tidak mengubah original
-    
-    print(f"🔄 Config: Using original domains for {account_obj.get('server', '')}")
-    pass
+# Duplicate function removed - using new implementation above
 
 def load_template(template_file):
     with open(template_file, "r") as f:

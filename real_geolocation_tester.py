@@ -73,29 +73,7 @@ class RealGeolocationTester:
         print(f"🔧 MODIFIED TES8: Domain different from server: {domain} (keep as-is)")
         return domain
     
-    def restore_original_domain_for_config(self, account):
-        """
-        Restore original domain values untuk config final
-        Kembalikan SNI/Host ke nilai asli setelah testing
-        """
-        # Get original values (yang belum di-clean)
-        original_sni = None
-        original_host = None
-        
-        # Get original SNI from TLS config
-        tls_config = account.get('tls', {})
-        if isinstance(tls_config, dict):
-            original_sni = tls_config.get('sni') or tls_config.get('server_name')
-        
-        # Get original host from transport headers
-        transport = account.get('transport', {})
-        if isinstance(transport, dict):
-            headers = transport.get('headers', {})
-            if isinstance(headers, dict):
-                original_host = headers.get('Host')
-        
-        print(f"🔄 Config: Restored original SNI={original_sni}, Host={original_host}")
-        return original_sni, original_host
+    # Domain restoration moved to core.py for config generation
     
     def get_lookup_target(self, account):
         """
