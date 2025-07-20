@@ -46,7 +46,7 @@ class RealGeolocationTester:
         # Jika sama persis, tetap test (user request: jangan skip)
         if domain == server:
             print(f"🔧 Testing: Same domain {domain} - will test as-is (user preference)")
-            return domain
+            return domain  # Return domain yang sama untuk ditest
             
         # Case 1: Domain mengandung server sebagai PREFIX (user's example)
         # quiz.int.vidio.com.admin.ari-andika2.site → admin.ari-andika2.site
@@ -94,13 +94,15 @@ class RealGeolocationTester:
     
     def get_lookup_target(self, account):
         """
-        USER'S SIMPLIFIED METHOD: Like the working standalone script
+        USER'S METHOD: With domain cleaning untuk testing yang benar
         
-        Priority logic (simplified):
+        Priority logic:
         1. IP dari path (direct geolocation)
-        2. SNI jika berbeda dari address
-        3. Host jika berbeda dari address  
+        2. SNI dengan domain cleaning (remove server prefix/suffix)
+        3. Host dengan domain cleaning (remove server prefix/suffix)
         4. Fallback: actual VPN proxy method
+        
+        TETAP PAKAI DOMAIN CLEANING agar pengetesannya benar dari host/sni
         """
         # Extract details in user's format
         address = account.get('server', '')
@@ -136,15 +138,31 @@ class RealGeolocationTester:
         
         print(f"🔍 Raw values - Address: {address}, SNI: {sni}, Host: {host}")
         
-        # 🎯 PRIORITY #2: SNI jika berbeda dari address (user's method)
-        if sni and sni != address:
-            print(f"🎯 Using SNI for direct lookup: {sni}")
-            return sni, "SNI lookup"
+        # 🎯 PRIORITY #2: SNI dengan domain cleaning untuk testing yang benar
+        if sni:
+            cleaned_sni = self.clean_domain_from_server_for_testing(sni, address)
+            if cleaned_sni:  # Ada hasil cleaning (termasuk domain sama yang tetap ditest)
+                # Jika sama dengan address tapi user minta tetap test (from cleaning function)
+                if cleaned_sni == address and sni == address:
+                    print(f"🎯 Using same SNI for testing: {cleaned_sni} (user preference: don't skip)")
+                    return cleaned_sni, "same SNI (tested)"
+                # Jika berbeda setelah cleaning
+                elif cleaned_sni != address:
+                    print(f"🎯 Using cleaned SNI for testing: {cleaned_sni} (original: {sni})")
+                    return cleaned_sni, "cleaned SNI"
         
-        # 🎯 PRIORITY #3: Host jika berbeda dari address (user's method)  
-        if host and host != address:
-            print(f"🎯 Using Host for direct lookup: {host}")
-            return host, "Host lookup"
+        # 🎯 PRIORITY #3: Host dengan domain cleaning untuk testing yang benar
+        if host:
+            cleaned_host = self.clean_domain_from_server_for_testing(host, address)
+            if cleaned_host:  # Ada hasil cleaning (termasuk domain sama yang tetap ditest)
+                # Jika sama dengan address tapi user minta tetap test (from cleaning function)
+                if cleaned_host == address and host == address:
+                    print(f"🎯 Using same Host for testing: {cleaned_host} (user preference: don't skip)")
+                    return cleaned_host, "same Host (tested)"
+                # Jika berbeda setelah cleaning
+                elif cleaned_host != address:
+                    print(f"🎯 Using cleaned Host for testing: {cleaned_host} (original: {host})")
+                    return cleaned_host, "cleaned Host"
         
         # 🎯 FALLBACK: Actual VPN proxy method
         print("🎯 Using actual VPN proxy method (no direct lookup target)")
