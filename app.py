@@ -178,44 +178,133 @@ def load_config():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error loading config: {str(e)}'})
 
+def smart_detect_input_type(text):
+    """
+    USER REQUEST: Smart auto-detection of input type
+    Detects if input is VPN links or URLs to fetch from
+    """
+    text = text.strip()
+    
+    # Check if text contains direct VPN links
+    vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s]+"
+    vpn_links = re.findall(vpn_pattern, text)
+    
+    if vpn_links:
+        # Contains VPN links - use direct parsing
+        return {
+            'type': 'direct_links',
+            'links': vpn_links,
+            'detection': f'Found {len(vpn_links)} VPN links'
+        }
+    
+    # Check if text is a single URL
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    if len(lines) == 1:
+        line = lines[0]
+        parsed = urlparse(line)
+        if parsed.scheme and parsed.netloc:
+            # Single URL - try to fetch from it
+            return {
+                'type': 'fetch_url',
+                'url': line,
+                'detection': f'Detected URL: {parsed.netloc}'
+            }
+    
+    # Check if text contains multiple URLs
+    url_pattern = r'https?://[^\s]+'
+    urls = re.findall(url_pattern, text)
+    if urls:
+        return {
+            'type': 'multiple_urls',
+            'urls': urls,
+            'detection': f'Found {len(urls)} URLs'
+        }
+    
+    # No VPN links or URLs found
+    return {
+        'type': 'unknown',
+        'detection': 'No VPN links or URLs detected'
+    }
+
 @app.route('/api/add-links-and-test', methods=['POST'])
 def add_links_and_test():
     data = request.json
-    links_text = data.get('links', '')
-    input_type = data.get('input_type', 'manual')  # 'manual', 'api_url', 'raw_url'
+    input_text = data.get('links', '').strip()
+    
+    if not input_text:
+        return jsonify({'success': False, 'message': 'No input provided'})
+    
+    # Smart auto-detection
+    detection_result = smart_detect_input_type(input_text)
     
     found_links = []
     fetch_info = {}
     
-    if input_type == 'manual':
-        # Original manual paste method
-        vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s]+"
-        found_links = re.findall(vpn_pattern, links_text)
+    if detection_result['type'] == 'direct_links':
+        # Direct VPN links found
+        found_links = detection_result['links']
+        fetch_info = {
+            'detection': detection_result['detection'],
+            'type': 'direct_links'
+        }
         
-    elif input_type in ['api_url', 'raw_url']:
-        # URL-based input
-        url = links_text.strip()
-        
-        # Validate URL
-        parsed = urlparse(url)
-        if not parsed.scheme or not parsed.netloc:
-            return jsonify({'success': False, 'message': 'Invalid URL format'})
-        
-        # Fetch VPN links from URL
+    elif detection_result['type'] == 'fetch_url':
+        # Single URL to fetch from
+        url = detection_result['url']
         fetch_result = fetch_vpn_links_from_url(url)
         
         if not fetch_result['success']:
-            return jsonify({'success': False, 'message': f"Failed to fetch from URL: {fetch_result['error']}"})
+            return jsonify({
+                'success': False, 
+                'message': f"Failed to fetch from URL: {fetch_result['error']}",
+                'detection': detection_result['detection']
+            })
         
         found_links = fetch_result['links']
         fetch_info = {
             'url': url,
-            'type': input_type,
-            'fetched_count': fetch_result['count']
+            'type': 'auto_fetch',
+            'fetched_count': fetch_result['count'],
+            'detection': detection_result['detection']
         }
+        
+    elif detection_result['type'] == 'multiple_urls':
+        # Multiple URLs - try to fetch from all
+        all_links = []
+        successful_urls = []
+        failed_urls = []
+        
+        for url in detection_result['urls']:
+            fetch_result = fetch_vpn_links_from_url(url)
+            if fetch_result['success'] and fetch_result['links']:
+                all_links.extend(fetch_result['links'])
+                successful_urls.append({'url': url, 'count': fetch_result['count']})
+            else:
+                failed_urls.append({'url': url, 'error': fetch_result.get('error', 'No links found')})
+        
+        found_links = all_links
+        fetch_info = {
+            'type': 'multiple_fetch',
+            'successful_urls': successful_urls,
+            'failed_urls': failed_urls,
+            'total_fetched': len(all_links),
+            'detection': detection_result['detection']
+        }
+        
+    else:
+        # Unknown input type
+        return jsonify({
+            'success': False, 
+            'message': 'No VPN links or valid URLs found in input',
+            'detection': detection_result['detection']
+        })
     
     if not found_links:
-        return jsonify({'success': False, 'message': 'No valid VPN links found'})
+        return jsonify({
+            'success': False, 
+            'message': 'No valid VPN links found after processing',
+            'detection': detection_result.get('detection', 'Unknown')
+        })
     
     # Parse each link
     accounts_from_links = []
@@ -239,19 +328,27 @@ def add_links_and_test():
     session_data['all_accounts'] = deduplicate_accounts(all_accounts)
     session_data['all_accounts'] = ensure_ws_path_field(session_data['all_accounts'])
     
+    # Create success response with detection info
     response = {
         'success': True,
-        'message': f'Added {len(accounts_from_links)} accounts. Ready to test!',
         'new_accounts': len(accounts_from_links),
         'total_accounts': len(session_data['all_accounts']),
         'invalid_links': invalid_links,
-        'ready_to_test': True
+        'ready_to_test': True,
+        'detection_info': fetch_info
     }
     
-    # Add fetch info if URL was used
-    if fetch_info:
-        response['fetch_info'] = fetch_info
-        response['message'] = f'Fetched {fetch_info["fetched_count"]} links from {fetch_info["type"].replace("_", " ").title()}, added {len(accounts_from_links)} valid accounts. Ready to test!'
+    # Create smart message based on detection type
+    if fetch_info.get('type') == 'direct_links':
+        response['message'] = f"🔗 Detected {len(found_links)} VPN links, added {len(accounts_from_links)} valid accounts. Ready to test!"
+    elif fetch_info.get('type') == 'auto_fetch':
+        response['message'] = f"🌐 Auto-fetched {fetch_info['fetched_count']} links from URL, added {len(accounts_from_links)} valid accounts. Ready to test!"
+    elif fetch_info.get('type') == 'multiple_fetch':
+        successful_count = len(fetch_info['successful_urls'])
+        total_urls = successful_count + len(fetch_info['failed_urls'])
+        response['message'] = f"🔄 Fetched from {successful_count}/{total_urls} URLs, got {fetch_info['total_fetched']} links, added {len(accounts_from_links)} valid accounts. Ready to test!"
+    else:
+        response['message'] = f"✅ Added {len(accounts_from_links)} accounts. Ready to test!"
     
     return jsonify(response)
 

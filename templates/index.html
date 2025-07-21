@@ -162,68 +162,47 @@
                 <!-- Add Links -->
                 <div class="card">
                     <div class="card-header">
-                        <h3>VPN Links Input</h3>
+                        <h3>🤖 Smart VPN Input</h3>
+                        <span class="badge auto-detection">Auto-Detection</span>
                     </div>
                     <div class="card-content">
-                        <!-- Input Method Selection -->
                         <div class="form-group">
-                            <label>Input Method</label>
-                            <div class="input-method-tabs">
-                                <button class="tab-btn active" data-method="manual">
-                                    <span>📝 Manual Paste</span>
-                                </button>
-                                <button class="tab-btn" data-method="api_url">
-                                    <span>🌐 API URL</span>
-                                </button>
-                                <button class="tab-btn" data-method="raw_url">
-                                    <span>📄 Raw URL</span>
-                                </button>
-                            </div>
-                        </div>
+                            <label for="vpn-links">Paste VPN Links or URLs</label>
+                            <textarea 
+                                id="vpn-links" 
+                                placeholder="🤖 Smart Input - Paste any of these:
 
-                        <!-- Manual Paste Input -->
-                        <div class="input-method-content" id="manual-input">
-                            <div class="form-group">
-                                <label for="vpn-links">Paste VPN Links</label>
-                                <textarea 
-                                    id="vpn-links" 
-                                    placeholder="Paste your VPN links here (vless://, trojan://, ss://)"
-                                    rows="8"
-                                ></textarea>
-                                <small>Supported: VLESS, Trojan, Shadowsocks - Testing will start automatically</small>
-                            </div>
-                        </div>
+📝 VPN Links:
+vless://uuid@server:443?path=/path&security=tls&host=host.com#name
+trojan://password@server:443?path=/path&security=tls&host=host.com#name
 
-                        <!-- API URL Input -->
-                        <div class="input-method-content hidden" id="api_url-input">
-                            <div class="form-group">
-                                <label for="api-url">API Endpoint URL</label>
-                                <input 
-                                    type="url" 
-                                    id="api-url" 
-                                    placeholder="https://admin.ari-andika2.site/api/v2ray?type=vless&bug=quiz.int.vidio.com&tls=true&limit=5&country=SG"
-                                    class="url-input"
-                                />
-                                <small>🌐 Fetch multiple VPN links from API endpoint (JSON or plain text response)</small>
-                            </div>
-                        </div>
+🌐 API URLs:
+https://admin.ari-andika2.site/api/v2ray?type=vless&bug=quiz.int.vidio.com&tls=true&limit=5&country=SG
 
-                        <!-- Raw URL Input -->
-                        <div class="input-method-content hidden" id="raw_url-input">
-                            <div class="form-group">
-                                <label for="raw-url">Raw Text URL</label>
-                                <input 
-                                    type="url" 
-                                    id="raw-url" 
-                                    placeholder="https://raw.githubusercontent.com/user/repo/main/vpn-accounts.txt"
-                                    class="url-input"
-                                />
-                                <small>📄 Fetch VPN links from raw text URL (GitHub raw, Pastebin, etc.)</small>
+📄 Raw URLs:
+https://raw.githubusercontent.com/user/repo/main/vpn-accounts.txt
+https://pastebin.com/raw/ABC123
+
+✨ The system will automatically detect and process your input!"
+                                rows="12"
+                            ></textarea>
+                            <div class="smart-detection-info">
+                                <div class="detection-indicator" id="detection-indicator">
+                                    <span class="detection-icon">🤖</span>
+                                    <span class="detection-text">Ready for smart detection...</span>
+                                </div>
+                                <small>
+                                    <strong>Auto-Detection Features:</strong><br>
+                                    • 🔗 Direct VPN links → Parse immediately<br>
+                                    • 🌐 Single URL → Auto-fetch from API/Raw<br>  
+                                    • 📚 Multiple URLs → Fetch from all sources<br>
+                                    • ⚡ No manual switching required!
+                                </small>
                             </div>
                         </div>
 
                         <button class="btn btn-success btn-large" id="add-and-test-btn">
-                            <span class="btn-text">🚀 Add Links & Start Testing</span>
+                            <span class="btn-text">🚀 Smart Process & Start Testing</span>
                             <div class="btn-loader hidden"></div>
                         </button>
                     </div>

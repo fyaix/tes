@@ -147,11 +147,9 @@ function setupFormHandlers() {
     // Add links and test
     document.getElementById('add-and-test-btn').addEventListener('click', addLinksAndTest);
     
-    // Input method tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            switchInputMethod(this.dataset.method);
-        });
+    // Smart detection preview
+    document.getElementById('vpn-links').addEventListener('input', function() {
+        updateSmartDetectionPreview(this.value);
     });
     
     // Input change handler for replacement stats (auto-update)
@@ -459,48 +457,51 @@ function showSetupStatus(message, type) {
     statusCard.style.display = 'block';
 }
 
-// Switch input method (manual, api_url, raw_url)
-function switchInputMethod(method) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.method === method);
-    });
+// Smart detection preview
+function updateSmartDetectionPreview(text) {
+    const indicator = document.getElementById('detection-indicator');
+    const iconSpan = indicator.querySelector('.detection-icon');
+    const textSpan = indicator.querySelector('.detection-text');
     
-    // Update input content visibility
-    document.querySelectorAll('.input-method-content').forEach(content => {
-        content.classList.add('hidden');
-    });
+    if (!text.trim()) {
+        iconSpan.textContent = '🤖';
+        textSpan.textContent = 'Ready for smart detection...';
+        return;
+    }
     
-    const activeContent = document.getElementById(`${method}-input`);
-    if (activeContent) {
-        activeContent.classList.remove('hidden');
+    // Simple client-side detection preview
+    const vpnPattern = /(?:vless|vmess|trojan|ss):\/\/[^\s]+/g;
+    const vpnMatches = text.match(vpnPattern) || [];
+    
+    const urlPattern = /https?:\/\/[^\s]+/g;
+    const urlMatches = text.match(urlPattern) || [];
+    
+    if (vpnMatches.length > 0) {
+        iconSpan.textContent = '🔗';
+        textSpan.textContent = `Detected ${vpnMatches.length} VPN link${vpnMatches.length > 1 ? 's' : ''} - Ready to parse!`;
+    } else if (urlMatches.length === 1) {
+        iconSpan.textContent = '🌐';
+        textSpan.textContent = `Detected single URL - Will auto-fetch VPN links`;
+    } else if (urlMatches.length > 1) {
+        iconSpan.textContent = '📚';
+        textSpan.textContent = `Detected ${urlMatches.length} URLs - Will fetch from all sources`;
+    } else {
+        iconSpan.textContent = '❓';
+        textSpan.textContent = 'No VPN links or URLs detected yet...';
     }
 }
 
 // Add links and start testing
 async function addLinksAndTest() {
-    // Get current input method
-    const activeMethod = document.querySelector('.tab-btn.active').dataset.method;
-    let inputText = '';
-    let inputType = activeMethod;
-    
-    // Get input based on method
-    if (activeMethod === 'manual') {
-        inputText = document.getElementById('vpn-links').value.trim();
-    } else if (activeMethod === 'api_url') {
-        inputText = document.getElementById('api-url').value.trim();
-    } else if (activeMethod === 'raw_url') {
-        inputText = document.getElementById('raw-url').value.trim();
-    }
+    const inputText = document.getElementById('vpn-links').value.trim();
     
     if (!inputText) {
-        const methodName = activeMethod === 'manual' ? 'VPN links' : 'URL';
-        showToast('No Input', `Please enter ${methodName}`, 'warning');
+        showToast('No Input', 'Please paste VPN links or URLs', 'warning');
         return;
     }
     
     setButtonLoading('add-and-test-btn', true);
-    updateStatus(`${activeMethod === 'manual' ? 'Adding links' : 'Fetching from URL'}...`, 'info');
+    updateStatus('🤖 Smart processing input...', 'info');
     
     try {
         const response = await fetch('/api/add-links-and-test', {
@@ -509,8 +510,7 @@ async function addLinksAndTest() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ 
-                links: inputText,
-                input_type: inputType
+                links: inputText
             }),
         });
         
@@ -531,14 +531,9 @@ async function addLinksAndTest() {
             // Show quick stats
             document.getElementById('quick-stats').style.display = 'block';
             
-            // Clear the input based on method
-            if (activeMethod === 'manual') {
-                document.getElementById('vpn-links').value = '';
-            } else if (activeMethod === 'api_url') {
-                document.getElementById('api-url').value = '';
-            } else if (activeMethod === 'raw_url') {
-                document.getElementById('raw-url').value = '';
-            }
+            // Clear the textarea and reset detection
+            document.getElementById('vpn-links').value = '';
+            updateSmartDetectionPreview('');
             
             if (data.invalid_links.length > 0) {
                 showToast('Some Invalid Links', `${data.invalid_links.length} links could not be parsed`, 'warning');
