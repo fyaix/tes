@@ -786,11 +786,14 @@ function updateLiveResults(results) {
     
     // USER REQUEST: Progressive display - only show accounts being tested or completed
     results.forEach((result, backendIndex) => {
-        const resultId = `${result.VpnType || result.type || 'unknown'}_${result.server || backendIndex}`;
+        // USER REQUEST: Use backend index as primary ID for better consistency
+        const resultId = `account_${result.index !== undefined ? result.index : backendIndex}`;
         
         // Check if this account is being tested or completed
         // USER REQUEST: Show accounts only when they start testing (not WAIT status)
         const isBeingTested = result.Status && result.Status !== 'WAIT';
+        
+        console.log(`Processing account ${backendIndex}: Status="${result.Status}", isBeingTested=${isBeingTested}, resultId="${resultId}"`);
         
         if (isBeingTested) {
             // Assign global display order if not already assigned
@@ -800,10 +803,13 @@ function updateLiveResults(results) {
                 
                 // USER REQUEST: Add new row when account starts testing
                 console.log(`🆕 Adding account ${displayedAccountsCount} to table (backend index ${backendIndex})`);
+                console.log('Account data:', result);
                 addNewTestingRow(result, displayedAccountsCount);
             } else {
                 // Update existing row
-                updateExistingTestingRow(result, globalTestOrder.get(resultId));
+                const displayOrder = globalTestOrder.get(resultId);
+                console.log(`🔄 Updating existing row ${displayOrder} (backend index ${backendIndex})`);
+                updateExistingTestingRow(result, displayOrder);
             }
         }
     });
@@ -831,15 +837,25 @@ function addNewTestingRow(result, displayOrder) {
 // Update existing testing row
 function updateExistingTestingRow(result, displayOrder) {
     const row = document.getElementById(`testing-row-${displayOrder}`);
-    if (!row) return;
+    if (!row) {
+        console.warn(`Row not found for displayOrder ${displayOrder}`);
+        return;
+    }
     
-    const isComplete = !result.Status.includes('Testing') && !result.Status.includes('Retry');
+    // USER REQUEST: Fix detection of completed tests
+    const completedStates = ['✅', '●', 'Success', '❌', 'Failed', 'Dead', 'Timeout'];
+    const isComplete = completedStates.some(state => result.Status.includes(state)) || 
+                      (!result.Status.includes('Testing') && !result.Status.includes('Retry') && !result.Status.includes('🔄'));
+    
+    console.log(`Updating row ${displayOrder}: Status="${result.Status}", isComplete=${isComplete}, Data:`, result);
+    
     const rowHtml = createTestingRowHtml(result, displayOrder, !isComplete);
     row.innerHTML = rowHtml;
     
     // Add completion animation if test is done
     if (isComplete) {
         row.classList.add('testing-row-completed');
+        console.log(`✅ Row ${displayOrder} marked as completed`);
     }
 }
 
