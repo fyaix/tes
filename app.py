@@ -439,8 +439,15 @@ def handle_start_testing():
             async def run_all_tests():
                 await test_all_accounts(session_data['all_accounts'], semaphore, live_results)
                 
-                # Count successful accounts
+                # Count successful accounts (USER REQUEST: exclude dead accounts from final config)
                 successful_accounts = [res for res in live_results if res["Status"] == "✅"]
+                dead_accounts = [res for res in live_results if res["Status"] == "Dead"]
+                
+                print(f"📊 Testing completed: {len(successful_accounts)} successful, {len(dead_accounts)} dead")
+                if dead_accounts:
+                    print(f"💀 Dead accounts excluded from final config: {len(dead_accounts)} accounts")
+                    for dead in dead_accounts:
+                        print(f"   - {dead.get('VpnType', 'N/A')} account {dead.get('index', 'unknown')} (dead after 3 timeouts)")
                 
                 # Sort by priority
                 successful_accounts.sort(key=sort_priority)

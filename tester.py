@@ -65,7 +65,7 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
     result = {
         "index": index, "VpnType": vpn_type, "OriginalTag": tag, "Latency": -1, "Jitter": -1, "ICMP": "N/A",
         "Country": "❓", "Provider": "-", "Tested IP": "-", "Status": "WAIT",
-        "OriginalAccount": account, "TestType": "N/A", "Retry": 0
+        "OriginalAccount": account, "TestType": "N/A", "Retry": 0, "TimeoutCount": 0
     }
 
     async with semaphore:
@@ -75,14 +75,22 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
             result['Status'] = '❌'
             return result
 
+        # USER REQUEST: Retry timeout 3x, then mark as dead
+        timeout_retries = 3
         for attempt in range(MAX_RETRIES):
-            result['Status'] = '🔄'
+            # Update status based on retry type
+            if result['TimeoutCount'] > 0:
+                result['Status'] = f'Timeout Retry {result["TimeoutCount"]}/3'
+            else:
+                result['Status'] = '🔄'
             result['Retry'] = attempt
+            
             if live_results is not None:
                 live_results[index].update(result)
                 await asyncio.sleep(0)  # yield to event loop
 
-            is_conn, latency = is_alive(test_ip, test_port)
+            is_conn, latency = is_alive(test_ip, test_port, timeout=5)  # 5s timeout for better detection
+            
             if is_conn:
                 geo_info = geoip_lookup(test_ip)
                 result.update({
@@ -112,10 +120,26 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                 if live_results is not None:
                     live_results[index].update(result)
                 return result
+            else:
+                # Connection failed - could be timeout or other error
+                result['TimeoutCount'] += 1
+                print(f"⚠️ Account {index+1} timeout {result['TimeoutCount']}/3 (attempt {attempt+1})")
+
+            # USER REQUEST: After 3 timeouts, mark as dead and stop retrying
+            if result['TimeoutCount'] >= timeout_retries:
+                result.update({
+                    "Status": "Dead",
+                    "Latency": "Dead", 
+                    "TestType": "Dead Connection",
+                    "ICMP": "Dead"
+                })
+                print(f"💀 Account {index+1} marked as DEAD after {timeout_retries} timeouts")
+                if live_results is not None:
+                    live_results[index].update(result)
+                return result
 
             if attempt < MAX_RETRIES - 1:
                 result['Status'] = '🔁'
-                result['Retry'] = attempt+1
                 if live_results is not None:
                     live_results[index].update(result)
                     await asyncio.sleep(0)

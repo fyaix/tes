@@ -901,13 +901,23 @@ function formatLatency(latency) {
     return `${Math.round(numLatency)}ms`;
 }
 
-// USER REQUEST: Animated status dot with glowing effect + dead/timeout handling
+// USER REQUEST: Animated status dot with glowing effect + dead/timeout handling + retry progress
 function createAnimatedStatus(status, isActive) {
     if (status.includes('Testing') || status.includes('Retry') || isActive) {
         return `
             <div class="status-testing">
                 <span class="status-dot testing-dot"></span>
                 <span class="status-text">Testing...</span>
+            </div>
+        `;
+    } else if (status.includes('Timeout Retry')) {
+        // USER REQUEST: Show retry progress for timeout
+        const retryMatch = status.match(/Timeout Retry (\d+)\/(\d+)/);
+        const retryText = retryMatch ? retryMatch[0] : 'Retrying...';
+        return `
+            <div class="status-retry">
+                <span class="status-dot retry-dot"></span>
+                <span class="status-text">${retryText}</span>
             </div>
         `;
     } else if (status === '●' || status === '✅' || status.includes('Success')) {
