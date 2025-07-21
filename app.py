@@ -405,12 +405,15 @@ def handle_start_testing():
                         completed = len([res for res in live_results if res["Status"] not in ["WAIT", "🔄", "🔁"]])
                         
                         try:
+                            # USER REQUEST: Progressive display - only send accounts that are being tested or completed
+                            active_results = [dict(res) for res in live_results if res["Status"] != "WAIT"]
+                            
                             data_to_send = {
-                                'results': [dict(res) for res in live_results],
+                                'results': active_results,  # Only active/completed accounts
                                 'total': len(live_results),
                                 'completed': completed
                             }
-                            print(f"Emitting periodic update: {completed}/{len(live_results)} completed")
+                            print(f"Emitting periodic update: {completed}/{len(live_results)} completed, {len(active_results)} active accounts")
                             socketio.emit('testing_update', data_to_send)
                         except Exception as e:
                             print(f"Update emit error: {e}")

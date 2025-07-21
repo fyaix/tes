@@ -922,33 +922,28 @@ function updateLiveResults(results) {
     
     console.log('🔍 DEBUG: Table body found, processing results...');
     
-    // USER REQUEST: Progressive display - only show accounts being tested or completed
+    // USER REQUEST: Progressive display - backend already filtered, process all received results
     results.forEach((result, backendIndex) => {
-        // USER REQUEST: Use backend index as primary ID for better consistency
+        // USER REQUEST: Use result.index as primary ID for consistency
         const resultId = `account_${result.index !== undefined ? result.index : backendIndex}`;
         
-        // Check if this account is being tested or completed
-        // USER REQUEST: Show accounts only when they start testing (not WAIT status)
-        const isBeingTested = result.Status && result.Status !== 'WAIT';
+        console.log(`🔍 DEBUG: Processing account ${result.index}: Status="${result.Status}", resultId="${resultId}"`);
         
-        console.log(`Processing account ${backendIndex}: Status="${result.Status}", isBeingTested=${isBeingTested}, resultId="${resultId}"`);
-        
-        if (isBeingTested) {
-            // Assign global display order if not already assigned
-            if (!globalTestOrder.has(resultId)) {
-                displayedAccountsCount++;
-                globalTestOrder.set(resultId, displayedAccountsCount);
-                
-                // USER REQUEST: Add new row when account starts testing
-                console.log(`🆕 Adding account ${displayedAccountsCount} to table (backend index ${backendIndex})`);
-                console.log('Account data:', result);
-                addNewTestingRow(result, displayedAccountsCount);
-            } else {
-                // Update existing row
-                const displayOrder = globalTestOrder.get(resultId);
-                console.log(`🔄 Updating existing row ${displayOrder} (backend index ${backendIndex})`);
-                updateExistingTestingRow(result, displayOrder);
-            }
+        // Backend already filtered - all received results should be displayed
+        // Assign global display order if not already assigned
+        if (!globalTestOrder.has(resultId)) {
+            displayedAccountsCount++;
+            globalTestOrder.set(resultId, displayedAccountsCount);
+            
+            // USER REQUEST: Add new row when account starts testing
+            console.log(`🆕 DEBUG: Adding NEW account ${displayedAccountsCount} to table (index ${result.index})`);
+            console.log('🔍 DEBUG: Account data:', result);
+            addNewTestingRow(result, displayedAccountsCount);
+        } else {
+            // Update existing row
+            const displayOrder = globalTestOrder.get(resultId);
+            console.log(`🔄 DEBUG: Updating EXISTING row ${displayOrder} (index ${result.index})`);
+            updateExistingTestingRow(result, displayOrder);
         }
     });
 }

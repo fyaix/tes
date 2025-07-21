@@ -83,13 +83,17 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
             # Update status based on retry type
             if result['TimeoutCount'] > 0:
                 result['Status'] = f'Timeout Retry {result["TimeoutCount"]}/3'
+                print(f"🔄 DEBUG: Account {index} retrying timeout {result['TimeoutCount']}/3")
             else:
                 result['Status'] = '🔄'
+                print(f"🔄 DEBUG: Account {index} testing (attempt {attempt + 1})")
             result['Retry'] = attempt
             
+            # USER REQUEST: Progressive updates - update live_results immediately
             if live_results is not None:
                 live_results[index].update(result)
-                await asyncio.sleep(0)  # yield to event loop
+                print(f"📊 DEBUG: Updated live_results for account {index} with status: {result['Status']}")
+                await asyncio.sleep(0.1)  # Small delay to allow emission
 
             is_conn, latency = is_alive(test_ip, test_port, timeout=5)  # 5s timeout for better detection
             
@@ -118,9 +122,10 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                 except ImportError:
                     print("⚠️  Real geolocation tester not available, using basic lookup")
                 
-                # Update live_results
+                # USER REQUEST: Progressive updates - update live_results with success status
                 if live_results is not None:
                     live_results[index].update(result)
+                    print(f"✅ DEBUG: Account {index} completed successfully with status: {result['Status']}")
                 return result
             else:
                 # Connection failed - could be timeout or other error
@@ -138,6 +143,7 @@ async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, 
                 print(f"💀 Account {index+1} marked as DEAD after {timeout_retries} timeouts")
                 if live_results is not None:
                     live_results[index].update(result)
+                    print(f"💀 DEBUG: Account {index} marked as DEAD with status: {result['Status']}")
                 return result
 
             if attempt < MAX_RETRIES - 1:
