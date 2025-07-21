@@ -1,6 +1,6 @@
 // Global variables
 let socket;
-let currentSection = 'setup';
+// USER REQUEST: currentSection removed - single page layout only
 let isGitHubConfigured = false;
 let testResults = [];
 let totalAccounts = 0;
@@ -21,7 +21,7 @@ function initializeApp() {
     initializeSocket();
     
     // Setup navigation
-    setupNavigation();
+    // USER REQUEST: Navigation removed - single page layout only
     
     // Setup event listeners
     setupEventListeners();
@@ -207,42 +207,7 @@ function initializeSocket() {
     });
 }
 
-// Setup navigation
-function setupNavigation() {
-    const navButtons = document.querySelectorAll('.nav-btn');
-    
-    navButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const targetSection = this.dataset.section;
-            switchSection(targetSection);
-        });
-    });
-}
-
-// Switch between sections
-function switchSection(sectionName) {
-    // Update navigation
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
-    
-    // Update sections
-    document.querySelectorAll('.section').forEach(section => {
-        section.classList.remove('active');
-    });
-    document.getElementById(sectionName).classList.add('active');
-    
-    currentSection = sectionName;
-    
-    // Scroll to top
-    window.scrollTo(0, 0);
-    
-    // Section-specific actions
-    if (sectionName === 'results') {
-        loadResults();
-    }
-}
+// USER REQUEST: Navigation functions removed - single page layout only
 
 // Setup all event listeners
 function setupEventListeners() {
