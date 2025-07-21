@@ -193,6 +193,18 @@ async def main():
         GitHubClient(github_token, repo_owner, repo_name) if github_token else None
     )
 
+    # --- AUTO-DETECT FILES IN REPO ---
+    if github_client and github_token and repo_owner and repo_name:
+        files = github_client.list_files_in_repo()
+        if files:
+            console.print("\n[bold green]Auto-Detect: File yang ditemukan di repo:[/bold green]")
+            for i, f in enumerate(files):
+                if f.get("type") == "file":
+                    console.print(f"{i + 1}. {f['name']}")
+        else:
+            console.print("[yellow]Auto-Detect: Tidak ada file ditemukan di repo.[/yellow]")
+    # --- END AUTO-DETECT ---
+
     source_config, github_path, sha = get_source_config(github_client)
     existing_accounts = extract_accounts_from_config(source_config)
     existing_accounts = ensure_ws_path_field(existing_accounts)
