@@ -821,14 +821,19 @@ function updateTestingProgress(data) {
 
 // Handle testing completion
 function handleTestingComplete(data) {
+    console.log('🎯 DEBUG: handleTestingComplete called with:', data);
+    
     updateStatus(`Testing complete: ${data.successful}/${data.total} successful`, 'success');
     
     showToast('Testing Complete', `${data.successful} out of ${data.total} accounts passed`, 'success');
     
     testResults = data.results;
     
-    // Update results section
+    // USER FIX: Update results section with both summary and detailed view
     updateResultsSummary(data);
+    displayDetailedResults(data.results);
+    
+    console.log('📊 DEBUG: Results section populated with summary and detailed view');
     
     // Update test status
     document.getElementById('test-status').textContent = data.successful > 0 ? '✅' : '❌';
@@ -1150,11 +1155,16 @@ async function loadResults() {
 
 // Update results summary
 function updateResultsSummary(data) {
-    const successful = data.results.filter(r => r.Status === '●').length;
-    const failed = data.results.filter(r => r.Status.startsWith('✖')).length;
+    console.log('🔍 DEBUG: updateResultsSummary called with:', data);
+    
+    // USER FIX: Use correct status symbols ✅ and ❌
+    const successful = data.results.filter(r => r.Status === '✅').length;
+    const failed = data.results.filter(r => r.Status === '❌' || r.Status === 'Dead').length;
+    
+    console.log(`📊 DEBUG: Results summary - ${successful} successful, ${failed} failed`);
     
     // Calculate average latency
-    const successfulResults = data.results.filter(r => r.Status === '●' && r.Latency !== -1);
+    const successfulResults = data.results.filter(r => r.Status === '✅' && r.Latency !== -1);
     const avgLatency = successfulResults.length > 0 
         ? Math.round(successfulResults.reduce((sum, r) => sum + r.Latency, 0) / successfulResults.length)
         : 0;
