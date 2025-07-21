@@ -619,6 +619,39 @@ class RealGeolocationTester:
         
         return modified_account
 
+    def _measure_latency_and_jitter(self, ip, port=443, timeout=5, samples=3):
+        """
+        USER REQUEST: Measure actual latency and jitter to detected IP instead of hardcoding 0
+        """
+        import socket
+        import time
+        import statistics
+        
+        latencies = []
+        
+        for _ in range(samples):
+            try:
+                start_time = time.time()
+                with socket.create_connection((ip, port), timeout=timeout):
+                    latency = (time.time() - start_time) * 1000
+                    latencies.append(latency)
+            except (socket.timeout, ConnectionRefusedError, OSError, TypeError):
+                continue
+        
+        if latencies:
+            avg_latency = int(statistics.mean(latencies))
+            
+            # Calculate jitter if multiple samples
+            if len(latencies) > 1:
+                jitters = [abs(latencies[i] - latencies[i-1]) for i in range(1, len(latencies))]
+                avg_jitter = int(statistics.mean(jitters))
+            else:
+                avg_jitter = 0
+                
+            return avg_latency, avg_jitter
+        else:
+            return -1, -1  # All connections failed
+
     def _get_real_vpn_ip_from_infrastructure(self, account, cleaned_target):
         """
         USER ISSUE: When VPN proxy unavailable, detect real VPN IP from infrastructure
@@ -638,6 +671,11 @@ class RealGeolocationTester:
             
             if best_ip and best_geo:
                 print(f"🎯 Found real VPN infrastructure: {best_ip}")
+                
+                # USER REQUEST: Measure actual latency to detected IP (not hardcode 0)
+                measured_latency, measured_jitter = self._measure_latency_and_jitter(best_ip)
+                print(f"📊 Measured latency to {best_ip}: {measured_latency}ms, jitter: {measured_jitter}ms")
+                
                 return {
                     'success': True,
                     'country': best_geo.get('countryCode', 'N/A'),
@@ -646,7 +684,8 @@ class RealGeolocationTester:
                     'org': best_geo.get('org', 'N/A'),
                     'ip': best_geo.get('query', best_ip),
                     'method': 'Real VPN Infrastructure Detection',
-                    'latency': 0
+                    'latency': measured_latency,
+                    'jitter': measured_jitter
                 }
         
         # Fallback: Try original domain infrastructure
@@ -658,6 +697,11 @@ class RealGeolocationTester:
                 best_ip, best_geo = self._select_best_ip_with_geo(all_ips, original_server)
                 if best_ip and best_geo:
                     print(f"🎯 Found real VPN infrastructure from original server: {best_ip}")
+                    
+                    # USER REQUEST: Measure actual latency to detected IP (not hardcode 0)
+                    measured_latency, measured_jitter = self._measure_latency_and_jitter(best_ip)
+                    print(f"📊 Measured latency to {best_ip}: {measured_latency}ms, jitter: {measured_jitter}ms")
+                    
                     return {
                         'success': True,
                         'country': best_geo.get('countryCode', 'N/A'),
@@ -666,7 +710,8 @@ class RealGeolocationTester:
                         'org': best_geo.get('org', 'N/A'),
                         'ip': best_geo.get('query', best_ip),
                         'method': 'Real VPN Infrastructure (Original)',
-                        'latency': 0
+                        'latency': measured_latency,
+                        'jitter': measured_jitter
                     }
         
         # Final fallback: Force domain lookup meskipun CDN (for user preference)
@@ -808,7 +853,8 @@ def get_real_geolocation(account):
             "Tested IP": result.get('ip', '-'),
             "Resolution Method": result.get('method', 'Real Geo'),
             "Real Location": True,
-            "Latency": result.get('latency', 0)
+            "Latency": result.get('latency', 0),
+            "Jitter": result.get('jitter', 0)
         }
     
     return None  # Fallback ke method lain
