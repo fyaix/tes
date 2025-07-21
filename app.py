@@ -624,6 +624,28 @@ def get_results():
         'has_config': session_data['final_config'] is not None
     })
 
+@app.route('/api/get-testing-status')
+def get_testing_status():
+    """USER REQUEST: Get current testing status for page refresh persistence"""
+    # Check if there are test results that indicate ongoing or completed testing
+    if session_data['test_results']:
+        # Count completed vs total
+        completed = len([r for r in session_data['test_results'] if r['Status'] not in ['WAIT', '🔄', '🔁']])
+        total = len(session_data['test_results'])
+        
+        return jsonify({
+            'has_active_testing': True,
+            'results': session_data['test_results'],
+            'completed': completed,
+            'total': total,
+            'accounts_count': len(session_data['all_accounts'])
+        })
+    else:
+        return jsonify({
+            'has_active_testing': False,
+            'accounts_count': len(session_data['all_accounts'])
+        })
+
 @app.route('/api/get-accounts')
 def get_accounts():
     """Get all parsed VPN accounts for server replacement"""

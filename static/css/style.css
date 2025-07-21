@@ -1060,6 +1060,20 @@ small {
   font-family: 'Courier New', monospace;
 }
 
+/* USER REQUEST: Align table headers with their corresponding cells */
+.latency-header,
+.jitter-header {
+  text-align: right !important;
+}
+
+.status-header {
+  text-align: center !important;
+}
+
+.ip-header {
+  text-align: left;
+}
+
 /* Config Info */
 .config-info {
   display: grid;

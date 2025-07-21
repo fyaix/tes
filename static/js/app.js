@@ -35,8 +35,63 @@ function initializeApp() {
     // Auto-load template configuration
     autoLoadConfiguration();
     
+    // USER REQUEST: Check for ongoing testing on page refresh
+    checkTestingStatusOnLoad();
+    
     // Update status
     updateStatus('Ready', 'success');
+}
+
+// USER REQUEST: Check testing status on page load for refresh persistence
+async function checkTestingStatusOnLoad() {
+    try {
+        const response = await fetch('/api/get-testing-status');
+        const data = await response.json();
+        
+        if (data.has_active_testing) {
+            console.log('🔄 Found active testing session, restoring...');
+            
+            // Show testing UI
+            showTestingProgress();
+            initializeTestingTable();
+            
+            // Restore results
+            updateLiveResults(data.results);
+            
+            // Update progress
+            updateTestingProgress({
+                results: data.results,
+                total: data.total,
+                completed: data.completed
+            });
+            
+            // Reconnect to socket for live updates
+            if (socket) {
+                console.log('📡 Reconnecting to testing updates...');
+            }
+            
+            // USER REQUEST: Clear textarea after testing starts/resumes
+            clearVpnInput();
+        }
+    } catch (error) {
+        console.error('Error checking testing status:', error);
+    }
+}
+
+// USER REQUEST: Clear VPN input textarea
+function clearVpnInput() {
+    const textarea = document.getElementById('vpn-links');
+    if (textarea) {
+        textarea.value = '';
+        // Also reset smart detection indicator
+        const indicator = document.getElementById('detection-indicator');
+        if (indicator) {
+            indicator.innerHTML = `
+                <span class="detection-icon">🤖</span>
+                <span class="detection-text">Ready for smart detection...</span>
+            `;
+        }
+    }
 }
 
 // Hide loading screen and show app
