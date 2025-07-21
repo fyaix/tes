@@ -108,27 +108,30 @@ function getSelectedConfigSource() {
 // Load configuration based on selected source
 async function loadConfigurationBasedOnSource() {
     const source = getSelectedConfigSource();
+    console.log(`🔧 DEBUG: loadConfigurationBasedOnSource called, source=${source}`);
     
     if (source === 'template') {
         // Auto-load template configuration
+        console.log('📁 DEBUG: Loading template configuration...');
         try {
             const response = await fetch('/api/load-template-config');
             const data = await response.json();
+            console.log('📁 DEBUG: Template response:', data);
             
             if (data.success) {
-                console.log('✅ Template configuration loaded automatically');
+                console.log('✅ DEBUG: Template configuration loaded automatically');
                 return { success: true, source: 'template' };
             } else {
                 throw new Error(data.message);
             }
         } catch (error) {
-            console.error('Template auto-load error:', error);
+            console.error('❌ DEBUG: Template auto-load error:', error);
             showToast('Template Error', 'Failed to load template configuration', 'error');
             return { success: false, source: 'template', error: error.message };
         }
     } else {
         // Use GitHub configuration (already saved)
-        console.log('✅ Using saved GitHub configuration');
+        console.log('🐙 DEBUG: Using saved GitHub configuration');
         return { success: true, source: 'github' };
     }
 }
@@ -648,14 +651,18 @@ async function addLinksAndTest() {
     updateStatus('🤖 Smart processing input...', 'info');
     
     // USER REQUEST: Smart detect dan auto-load configuration
+    console.log('🔧 DEBUG: Loading configuration based on source...');
     const configResult = await loadConfigurationBasedOnSource();
+    console.log('🔧 DEBUG: Config result:', configResult);
+    
     if (!configResult.success) {
+        console.log('❌ DEBUG: Configuration load failed:', configResult);
         setButtonLoading('add-and-test-btn', false);
         updateStatus('Configuration load failed', 'error');
         return;
     }
     
-    console.log(`🔧 Using ${configResult.source} configuration for testing`);
+    console.log(`✅ DEBUG: Using ${configResult.source} configuration for testing`);
     
     try {
         const response = await fetch('/api/add-links-and-test', {
@@ -693,8 +700,7 @@ async function addLinksAndTest() {
                 showToast('Some Invalid Links', `${data.invalid_links.length} links could not be parsed`, 'warning');
             }
             
-            // Switch to testing section and start testing
-            switchSection('testing');
+            // USER REQUEST: Single page layout - no section switching needed, start testing directly
             startTesting();
             
         } else {
@@ -757,17 +763,23 @@ function logActivity(message) {
 
 // Testing Functions
 function startTesting() {
+    console.log(`🔍 DEBUG: startTesting called, totalAccounts=${totalAccounts}`);
+    
     if (totalAccounts === 0) {
+        console.log('❌ DEBUG: No accounts found, stopping');
         showToast('No Accounts', 'Please add some VPN accounts first', 'warning');
         return;
     }
     
+    console.log('✅ DEBUG: Starting testing process...');
     updateStatus('Starting tests...', 'info');
     
     showTestingProgress();
     
     // Start testing via Socket.IO
+    console.log('📡 DEBUG: Emitting start_testing to backend...');
     socket.emit('start_testing');
+    console.log('📡 DEBUG: start_testing emitted successfully');
 }
 
 // Show testing progress UI

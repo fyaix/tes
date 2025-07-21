@@ -342,9 +342,14 @@ def add_links_and_test():
 
 @socketio.on('start_testing')
 def handle_start_testing():
+    print(f"🔍 DEBUG: start_testing received, accounts count: {len(session_data['all_accounts'])}")
+    
     if not session_data['all_accounts']:
+        print("❌ DEBUG: No accounts found in session_data")
         emit('testing_error', {'message': 'No accounts to test'})
         return
+    
+    print("✅ DEBUG: Starting testing process in backend...")
     
     def run_tests():
         # Create a new event loop for this thread
