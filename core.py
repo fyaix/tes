@@ -49,15 +49,23 @@ def ensure_ws_path_field(accounts: list) -> list:
     return accounts
 
 async def test_all_accounts(accounts: list, semaphore, live_results):
+    print(f"🔍 DEBUG: test_all_accounts called with {len(accounts)} accounts")
+    
     tasks = [
         test_account(acc, semaphore, i, live_results)
         for i, acc in enumerate(accounts)
     ]
+    print(f"🔍 DEBUG: Created {len(tasks)} test tasks")
+    
     results = []
-    for future in asyncio.as_completed(tasks):
+    for i, future in enumerate(asyncio.as_completed(tasks)):
+        print(f"🔍 DEBUG: Processing task {i+1}/{len(tasks)}")
         result = await future
+        print(f"🔍 DEBUG: Task {i+1} completed with status: {result.get('Status', 'unknown')}")
         live_results[result["index"]].update(result)
         results.append(result)
+    
+    print(f"🔍 DEBUG: test_all_accounts completed, {len(results)} results")
     return results
 
 def build_final_accounts(successful_results, custom_servers=None):

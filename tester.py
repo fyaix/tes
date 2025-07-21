@@ -62,6 +62,8 @@ def get_test_target(account):
 async def test_account(account: dict, semaphore: asyncio.Semaphore, index: int, live_results=None) -> dict:
     tag = account.get('tag', 'proxy')
     vpn_type = account.get('type', 'N/A')
+    print(f"🔍 DEBUG: test_account called for account {index}: {vpn_type} - {tag}")
+    
     result = {
         "index": index, "VpnType": vpn_type, "OriginalTag": tag, "Latency": -1, "Jitter": -1, "ICMP": "N/A",
         "Country": "❓", "Provider": "-", "Tested IP": "-", "Status": "WAIT",

@@ -188,7 +188,8 @@ function initializeSocket() {
     });
     
     socket.on('testing_update', function(data) {
-        console.log('Received testing_update:', data);
+        console.log('🔍 DEBUG: Received testing_update:', data);
+        console.log(`🔍 DEBUG: Data contains ${data.results?.length || 0} results, ${data.completed}/${data.total} completed`);
         updateTestingProgress(data);
     });
     
@@ -784,12 +785,14 @@ function hideTestingProgress() {
 
 // Update testing progress
 function updateTestingProgress(data) {
-    console.log('Testing progress update:', data); // Debug log
+    console.log('🔍 DEBUG: updateTestingProgress called with:', data); // Debug log
     
     if (!data || !data.results) {
-        console.error('Invalid data received:', data);
+        console.error('❌ DEBUG: Invalid data received:', data);
         return;
     }
+    
+    console.log(`🔍 DEBUG: Processing ${data.results.length} results`);
     
     // Better status detection - exclude only pending states
     const pendingStates = ['WAIT', '🔄', '🔁'];
@@ -904,16 +907,20 @@ function updateTestStats(successful, failed, testing) {
 
 // Update live results display (USER REQUEST: Progressive table, show accounts as tested)
 function updateLiveResults(results) {
+    console.log(`🔍 DEBUG: updateLiveResults called with ${results?.length || 0} results`);
+    
     const tableBody = document.getElementById('testing-table-body');
     if (!tableBody) {
-        console.error('Table body not found');
+        console.error('❌ DEBUG: Table body not found');
         return;
     }
     
     if (!results || !Array.isArray(results)) {
-        console.error('Invalid results data:', results);
+        console.error('❌ DEBUG: Invalid results data:', results);
         return;
     }
+    
+    console.log('🔍 DEBUG: Table body found, processing results...');
     
     // USER REQUEST: Progressive display - only show accounts being tested or completed
     results.forEach((result, backendIndex) => {
