@@ -452,7 +452,13 @@ async function loadGitHubFiles() {
         const data = await response.json();
         
         if (data.success) {
-            select.innerHTML = '<option value="">Select a file...</option>';
+            select.innerHTML = '';
+            // Tambahkan opsi untuk membuat file baru dari template lokal
+            const newOpt = document.createElement('option');
+            newOpt.value = '__create_new__';
+            newOpt.textContent = '➕ Create New (from Local Template)';
+            select.appendChild(newOpt);
+            // Tambahkan file-file dari repo
             data.files.forEach(file => {
                 const option = document.createElement('option');
                 option.value = file.path;
@@ -460,7 +466,7 @@ async function loadGitHubFiles() {
                 select.appendChild(option);
             });
         } else {
-            select.innerHTML = '<option value="">Error loading files</option>';
+            select.innerHTML = '<option value="">Error loading files: ' + (data.message || 'Unknown error') + '</option>';
             showToast('Load Error', data.message, 'error');
         }
     } catch (error) {
@@ -541,10 +547,15 @@ async function loadConfiguration() {
     if (configSource === 'github') {
         const filePath = document.getElementById('github-files').value;
         if (!filePath) {
-            showToast('File Required', 'Please select a GitHub file', 'warning');
+            showToast('No File Selected', 'Please select a configuration file or create new.', 'warning');
             return;
         }
-        requestData.file_path = filePath;
+        if (filePath === '__create_new__') {
+            // User memilih create baru, pakai template lokal
+            requestData = { source: 'local' };
+        } else {
+            requestData.file_path = filePath;
+        }
     }
     
     setButtonLoading('load-config-btn', true);
