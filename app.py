@@ -2,6 +2,7 @@ import os
 import json
 import re
 import asyncio
+import requests
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
@@ -9,6 +10,7 @@ import threading
 import tempfile
 import subprocess
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 # Import existing modules
 from github_client import GitHubClient
@@ -37,6 +39,64 @@ session_data = {
 
 MAX_CONCURRENT_TESTS = 5
 TEMPLATE_FILE = "template.json"
+
+def fetch_vpn_links_from_url(url, url_type='auto'):
+    """
+    Fetch VPN links from URL (API or raw text)
+    url_type: 'api', 'raw', or 'auto'
+    """
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        vpn_links = []
+        
+        # Try JSON first (API response)
+        try:
+            data = response.json()
+            
+            # Extract VPN links from JSON (flexible extraction)
+            def extract_from_json(obj):
+                if isinstance(obj, str):
+                    if any(proto in obj for proto in ['vless://', 'vmess://', 'trojan://', 'ss://']):
+                        vpn_links.append(obj)
+                elif isinstance(obj, list):
+                    for item in obj:
+                        extract_from_json(item)
+                elif isinstance(obj, dict):
+                    for value in obj.values():
+                        extract_from_json(value)
+            
+            extract_from_json(data)
+            
+        except json.JSONDecodeError:
+            # Not JSON, treat as plain text
+            pass
+        
+        # If no links found in JSON or it's plain text, use regex
+        if not vpn_links:
+            content = response.text
+            vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s\n\r]+"
+            vpn_links = re.findall(vpn_pattern, content)
+        
+        return {
+            'success': True,
+            'links': vpn_links,
+            'count': len(vpn_links)
+        }
+        
+    except requests.exceptions.Timeout:
+        return {'success': False, 'error': 'Request timeout - URL took too long to respond'}
+    except requests.exceptions.ConnectionError:
+        return {'success': False, 'error': 'Connection error - Could not reach URL'}
+    except requests.exceptions.HTTPError as e:
+        return {'success': False, 'error': f'HTTP error: {e}'}
+    except Exception as e:
+        return {'success': False, 'error': f'Error fetching from URL: {e}'}
 
 @app.route('/')
 def index():
@@ -122,10 +182,37 @@ def load_config():
 def add_links_and_test():
     data = request.json
     links_text = data.get('links', '')
+    input_type = data.get('input_type', 'manual')  # 'manual', 'api_url', 'raw_url'
     
-    # Extract VPN links using regex
-    vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s]+"
-    found_links = re.findall(vpn_pattern, links_text)
+    found_links = []
+    fetch_info = {}
+    
+    if input_type == 'manual':
+        # Original manual paste method
+        vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s]+"
+        found_links = re.findall(vpn_pattern, links_text)
+        
+    elif input_type in ['api_url', 'raw_url']:
+        # URL-based input
+        url = links_text.strip()
+        
+        # Validate URL
+        parsed = urlparse(url)
+        if not parsed.scheme or not parsed.netloc:
+            return jsonify({'success': False, 'message': 'Invalid URL format'})
+        
+        # Fetch VPN links from URL
+        fetch_result = fetch_vpn_links_from_url(url)
+        
+        if not fetch_result['success']:
+            return jsonify({'success': False, 'message': f"Failed to fetch from URL: {fetch_result['error']}"})
+        
+        found_links = fetch_result['links']
+        fetch_info = {
+            'url': url,
+            'type': input_type,
+            'fetched_count': fetch_result['count']
+        }
     
     if not found_links:
         return jsonify({'success': False, 'message': 'No valid VPN links found'})
@@ -152,14 +239,21 @@ def add_links_and_test():
     session_data['all_accounts'] = deduplicate_accounts(all_accounts)
     session_data['all_accounts'] = ensure_ws_path_field(session_data['all_accounts'])
     
-    return jsonify({
+    response = {
         'success': True,
         'message': f'Added {len(accounts_from_links)} accounts. Ready to test!',
         'new_accounts': len(accounts_from_links),
         'total_accounts': len(session_data['all_accounts']),
         'invalid_links': invalid_links,
         'ready_to_test': True
-    })
+    }
+    
+    # Add fetch info if URL was used
+    if fetch_info:
+        response['fetch_info'] = fetch_info
+        response['message'] = f'Fetched {fetch_info["fetched_count"]} links from {fetch_info["type"].replace("_", " ").title()}, added {len(accounts_from_links)} valid accounts. Ready to test!'
+    
+    return jsonify(response)
 
 @socketio.on('start_testing')
 def handle_start_testing():

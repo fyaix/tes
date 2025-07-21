@@ -165,15 +165,63 @@
                         <h3>VPN Links Input</h3>
                     </div>
                     <div class="card-content">
+                        <!-- Input Method Selection -->
                         <div class="form-group">
-                            <label for="vpn-links">Paste VPN Links</label>
-                            <textarea 
-                                id="vpn-links" 
-                                placeholder="Paste your VPN links here (vless://, trojan://, ss://)"
-                                rows="8"
-                            ></textarea>
-                            <small>Supported: VLESS, Trojan, Shadowsocks - Testing will start automatically</small>
+                            <label>Input Method</label>
+                            <div class="input-method-tabs">
+                                <button class="tab-btn active" data-method="manual">
+                                    <span>📝 Manual Paste</span>
+                                </button>
+                                <button class="tab-btn" data-method="api_url">
+                                    <span>🌐 API URL</span>
+                                </button>
+                                <button class="tab-btn" data-method="raw_url">
+                                    <span>📄 Raw URL</span>
+                                </button>
+                            </div>
                         </div>
+
+                        <!-- Manual Paste Input -->
+                        <div class="input-method-content" id="manual-input">
+                            <div class="form-group">
+                                <label for="vpn-links">Paste VPN Links</label>
+                                <textarea 
+                                    id="vpn-links" 
+                                    placeholder="Paste your VPN links here (vless://, trojan://, ss://)"
+                                    rows="8"
+                                ></textarea>
+                                <small>Supported: VLESS, Trojan, Shadowsocks - Testing will start automatically</small>
+                            </div>
+                        </div>
+
+                        <!-- API URL Input -->
+                        <div class="input-method-content hidden" id="api_url-input">
+                            <div class="form-group">
+                                <label for="api-url">API Endpoint URL</label>
+                                <input 
+                                    type="url" 
+                                    id="api-url" 
+                                    placeholder="https://admin.ari-andika2.site/api/v2ray?type=vless&bug=quiz.int.vidio.com&tls=true&limit=5&country=SG"
+                                    class="url-input"
+                                />
+                                <small>🌐 Fetch multiple VPN links from API endpoint (JSON or plain text response)</small>
+                            </div>
+                        </div>
+
+                        <!-- Raw URL Input -->
+                        <div class="input-method-content hidden" id="raw_url-input">
+                            <div class="form-group">
+                                <label for="raw-url">Raw Text URL</label>
+                                <input 
+                                    type="url" 
+                                    id="raw-url" 
+                                    placeholder="https://raw.githubusercontent.com/user/repo/main/vpn-accounts.txt"
+                                    class="url-input"
+                                />
+                                <small>📄 Fetch VPN links from raw text URL (GitHub raw, Pastebin, etc.)</small>
+                            </div>
+                        </div>
+
                         <button class="btn btn-success btn-large" id="add-and-test-btn">
                             <span class="btn-text">🚀 Add Links & Start Testing</span>
                             <div class="btn-loader hidden"></div>

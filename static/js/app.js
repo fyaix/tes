@@ -147,6 +147,13 @@ function setupFormHandlers() {
     // Add links and test
     document.getElementById('add-and-test-btn').addEventListener('click', addLinksAndTest);
     
+    // Input method tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            switchInputMethod(this.dataset.method);
+        });
+    });
+    
     // Input change handler for replacement stats (auto-update)
     document.getElementById('replacement-servers').addEventListener('input', updateReplacementStats);
     
@@ -452,17 +459,48 @@ function showSetupStatus(message, type) {
     statusCard.style.display = 'block';
 }
 
+// Switch input method (manual, api_url, raw_url)
+function switchInputMethod(method) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.method === method);
+    });
+    
+    // Update input content visibility
+    document.querySelectorAll('.input-method-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    const activeContent = document.getElementById(`${method}-input`);
+    if (activeContent) {
+        activeContent.classList.remove('hidden');
+    }
+}
+
 // Add links and start testing
 async function addLinksAndTest() {
-    const linksText = document.getElementById('vpn-links').value.trim();
+    // Get current input method
+    const activeMethod = document.querySelector('.tab-btn.active').dataset.method;
+    let inputText = '';
+    let inputType = activeMethod;
     
-    if (!linksText) {
-        showToast('No Links', 'Please paste some VPN links', 'warning');
+    // Get input based on method
+    if (activeMethod === 'manual') {
+        inputText = document.getElementById('vpn-links').value.trim();
+    } else if (activeMethod === 'api_url') {
+        inputText = document.getElementById('api-url').value.trim();
+    } else if (activeMethod === 'raw_url') {
+        inputText = document.getElementById('raw-url').value.trim();
+    }
+    
+    if (!inputText) {
+        const methodName = activeMethod === 'manual' ? 'VPN links' : 'URL';
+        showToast('No Input', `Please enter ${methodName}`, 'warning');
         return;
     }
     
     setButtonLoading('add-and-test-btn', true);
-    updateStatus('Adding links...', 'info');
+    updateStatus(`${activeMethod === 'manual' ? 'Adding links' : 'Fetching from URL'}...`, 'info');
     
     try {
         const response = await fetch('/api/add-links-and-test', {
@@ -470,7 +508,10 @@ async function addLinksAndTest() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ links: linksText }),
+            body: JSON.stringify({ 
+                links: inputText,
+                input_type: inputType
+            }),
         });
         
         const data = await response.json();
@@ -490,8 +531,14 @@ async function addLinksAndTest() {
             // Show quick stats
             document.getElementById('quick-stats').style.display = 'block';
             
-            // Clear the textarea
-            document.getElementById('vpn-links').value = '';
+            // Clear the input based on method
+            if (activeMethod === 'manual') {
+                document.getElementById('vpn-links').value = '';
+            } else if (activeMethod === 'api_url') {
+                document.getElementById('api-url').value = '';
+            } else if (activeMethod === 'raw_url') {
+                document.getElementById('raw-url').value = '';
+            }
             
             if (data.invalid_links.length > 0) {
                 showToast('Some Invalid Links', `${data.invalid_links.length} links could not be parsed`, 'warning');
