@@ -875,10 +875,23 @@ function createTestingRowHtml(result, displayOrder, isActive = false) {
     `;
 }
 
-// USER REQUEST: Format latency to be simple (no long decimals)
+// USER REQUEST: Format latency to be simple (no long decimals) + handle timeout/dead
 function formatLatency(latency) {
     if (latency === -1 || latency === null || latency === undefined) {
         return '—';
+    }
+    
+    // Handle special timeout/dead cases
+    if (typeof latency === 'string') {
+        if (latency.toLowerCase().includes('timeout')) {
+            return 'Timeout';
+        }
+        if (latency.toLowerCase().includes('dead') || latency.toLowerCase().includes('unreachable')) {
+            return 'Dead';
+        }
+        if (latency.toLowerCase().includes('failed') || latency.toLowerCase().includes('error')) {
+            return 'Failed';
+        }
     }
     
     const numLatency = parseFloat(latency);
@@ -888,7 +901,7 @@ function formatLatency(latency) {
     return `${Math.round(numLatency)}ms`;
 }
 
-// USER REQUEST: Animated status dot with glowing effect
+// USER REQUEST: Animated status dot with glowing effect + dead/timeout handling
 function createAnimatedStatus(status, isActive) {
     if (status.includes('Testing') || status.includes('Retry') || isActive) {
         return `
@@ -904,7 +917,21 @@ function createAnimatedStatus(status, isActive) {
                 <span class="status-text">Success</span>
             </div>
         `;
-    } else if (status.startsWith('✖') || status.includes('Failed') || status.includes('Error')) {
+    } else if (status.includes('Timeout') || status.includes('timeout')) {
+        return `
+            <div class="status-timeout">
+                <span class="status-dot timeout-dot"></span>
+                <span class="status-text">Timeout</span>
+            </div>
+        `;
+    } else if (status.includes('Dead') || status.includes('dead') || status.includes('unreachable')) {
+        return `
+            <div class="status-dead">
+                <span class="status-dot dead-dot"></span>
+                <span class="status-text">Dead</span>
+            </div>
+        `;
+    } else if (status.startsWith('✖') || status.includes('Failed') || status.includes('Error') || status.includes('failed')) {
         return `
             <div class="status-failed">
                 <span class="status-dot failed-dot"></span>

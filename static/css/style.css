@@ -532,6 +532,29 @@ body {
   box-shadow: 0 0 4px rgba(239, 68, 68, 0.4);
 }
 
+/* Timeout status - orange dot with fade animation */
+.timeout-dot {
+  background: #f97316;
+  box-shadow: 0 0 4px rgba(249, 115, 22, 0.4);
+  animation: fade-pulse 2s infinite;
+}
+
+@keyframes fade-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Dead status - dark red dot (no connection) */
+.dead-dot {
+  background: #991b1b;
+  box-shadow: 0 0 4px rgba(153, 27, 27, 0.6);
+  opacity: 0.8;
+}
+
 /* Waiting status - gray dot */
 .waiting-dot {
   background: #6b7280;
@@ -542,6 +565,8 @@ body {
 .status-testing,
 .status-success,
 .status-failed,
+.status-timeout,
+.status-dead,
 .status-waiting {
   display: flex;
   align-items: center;
@@ -559,6 +584,15 @@ body {
 
 .status-failed .status-text {
   color: #ef4444;
+}
+
+.status-timeout .status-text {
+  color: #f97316;
+}
+
+.status-dead .status-text {
+  color: #991b1b;
+  font-weight: 600;
 }
 
 .status-waiting .status-text {
