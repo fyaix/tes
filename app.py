@@ -4,7 +4,7 @@ import re
 import asyncio
 import requests
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 from flask_socketio import SocketIO, emit
 import threading
 import tempfile
@@ -20,7 +20,7 @@ from core import (
 )
 from extractor import extract_accounts_from_config
 from converter import parse_link, inject_outbounds_to_template
-from database import save_github_config, get_github_config, save_test_session, get_latest_test_session
+from database import save_github_config, get_github_config, save_test_session, get_latest_test_session, create_user, verify_user_password, set_github_config_for_user, get_github_config_for_user, get_user_by_username
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -102,29 +102,43 @@ def fetch_vpn_links_from_url(url, url_type='auto'):
 def index():
     return render_template('index.html')
 
-@app.route('/api/setup-github', methods=['POST'])
-def setup_github():
+@app.route('/register', methods=['POST'])
+def register():
     data = request.json
-    token = data.get('token')
-    owner = data.get('owner')
-    repo = data.get('repo')
-    
-    if token and owner and repo:
-        # Save to local database
-        save_github_config(token, owner, repo)
-        session_data['github_client'] = GitHubClient(token, owner, repo)
-        return jsonify({'success': True, 'message': 'GitHub configured and saved locally'})
+    username = data.get('username')
+    password = data.get('password')
+    if not username or not password:
+        return jsonify({'success': False, 'message': 'Username and password required'})
+    if create_user(username, password):
+        return jsonify({'success': True, 'message': 'User registered'})
     else:
-        return jsonify({'success': False, 'message': 'All fields are required'})
+        return jsonify({'success': False, 'message': 'Username already exists'})
 
-# Removed duplicate endpoint - using new implementation below
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    if not username or not password:
+        return jsonify({'success': False, 'message': 'Username and password required'})
+    if verify_user_password(username, password):
+        session['username'] = username
+        return jsonify({'success': True, 'message': 'Login successful'})
+    else:
+        return jsonify({'success': False, 'message': 'Invalid credentials'})
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('username', None)
+    return jsonify({'success': True, 'message': 'Logged out'})
 
 @app.route('/api/list-github-files')
 def list_github_files():
-    if not session_data['github_client']:
+    github_client = get_github_client_for_current_user()
+    if not github_client:
         return jsonify({'success': False, 'message': 'GitHub not configured'})
     
-    files = session_data['github_client'].list_files_in_repo()
+    files = github_client.list_files_in_repo()
     json_files = [f for f in files if f.get('type') == 'file' and f.get('name', '').endswith('.json')]
     return jsonify({'success': True, 'files': json_files})
 
@@ -136,10 +150,11 @@ def load_config():
     try:
         if source == 'github':
             file_path = data.get('file_path')
-            if not session_data['github_client'] or not file_path:
+            github_client = get_github_client_for_current_user()
+            if not github_client or not file_path:
                 return jsonify({'success': False, 'message': 'GitHub client not configured or file path missing'})
             
-            content, sha = session_data['github_client'].get_file(file_path)
+            content, sha = github_client.get_file(file_path)
             if content:
                 config_data = json.loads(content)
                 session_data['github_path'] = file_path
@@ -587,7 +602,8 @@ def upload_to_github():
     if not session_data['final_config']:
         return jsonify({'success': False, 'message': 'No config available for upload'})
     
-    if not session_data['github_client']:
+    github_client = get_github_client_for_current_user()
+    if not github_client:
         return jsonify({'success': False, 'message': 'GitHub not configured'})
     
     data = request.json
@@ -597,7 +613,7 @@ def upload_to_github():
     upload_path = session_data['github_path'] if session_data['github_path'] else f"VortexVpn-{timestamp}.json"
     
     try:
-        result = session_data['github_client'].update_or_create_file(
+        result = github_client.update_or_create_file(
             upload_path, 
             session_data['final_config'], 
             commit_message, 
@@ -675,70 +691,28 @@ def load_template_config():
 
 @app.route('/api/get-github-config')
 def get_github_config():
-    """USER REQUEST: Get saved GitHub config from database for auto-fill"""
-    try:
-        # Simple file-based storage for GitHub config
-        config_file = 'github_config.json'
-        
-        if os.path.exists(config_file):
-            with open(config_file, 'r') as f:
-                github_config = json.load(f)
-            
-            # Don't send token for security, just owner (repo editable)
-            return jsonify({
-                'success': True,
-                'owner': github_config.get('owner', ''),
-                'repo': github_config.get('repo', ''),
-                'has_token': bool(github_config.get('token', ''))
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'No saved GitHub configuration found'
-            })
-    
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Failed to load GitHub config: {str(e)}'
-        })
+    username = session.get('username')
+    if not username:
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    config = get_github_config_for_user(username)
+    if config and config['token']:
+        return jsonify({'success': True, 'owner': config['owner'], 'repo': config['repo'], 'has_token': True})
+    else:
+        return jsonify({'success': True, 'owner': config['owner'] if config else '', 'repo': config['repo'] if config else '', 'has_token': False})
 
 @app.route('/api/save-github-config', methods=['POST'])
 def save_github_config():
-    """USER REQUEST: Save GitHub config to database with token persistence"""
-    try:
-        data = request.json
-        token = data.get('token', '').strip()
-        owner = data.get('owner', '').strip()
-        repo = data.get('repo', '').strip()
-        
-        if not all([token, owner, repo]):
-            return jsonify({
-                'success': False,
-                'message': 'Token, owner, and repo are required'
-            })
-        
-        # Save to simple file storage
-        github_config = {
-            'token': token,
-            'owner': owner,
-            'repo': repo
-        }
-        
-        config_file = 'github_config.json'
-        with open(config_file, 'w') as f:
-            json.dump(github_config, f, indent=2)
-        
-        return jsonify({
-            'success': True,
-            'message': 'GitHub configuration saved successfully'
-        })
-    
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Failed to save GitHub config: {str(e)}'
-        })
+    username = session.get('username')
+    if not username:
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    data = request.json
+    token = data.get('token')
+    owner = data.get('owner')
+    repo = data.get('repo')
+    if not token or not owner or not repo:
+        return jsonify({'success': False, 'message': 'All fields are required'})
+    set_github_config_for_user(username, token, owner, repo)
+    return jsonify({'success': True, 'message': 'GitHub configuration saved'})
 
 @app.route('/api/get-accounts')
 def get_accounts():
@@ -842,6 +816,16 @@ def parse_servers_input(servers_input):
     
     return servers
 
+def get_github_client_for_current_user():
+    username = session.get('username')
+    if not username:
+        return None
+    config = get_github_config_for_user(username)
+    if config and config['token'] and config['owner'] and config['repo']:
+        return GitHubClient(config['token'], config['owner'], config['repo'])
+    return None
+
 if __name__ == '__main__':
     load_dotenv()
+    app.secret_key = os.getenv('APP_SECRET_KEY', 'supersecretkey')
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

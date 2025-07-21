@@ -2,6 +2,7 @@ import sqlite3
 import json
 import os
 from pathlib import Path
+import hashlib
 
 DB_FILE = "vortexvpn.db"
 
@@ -116,5 +117,73 @@ def get_latest_test_session():
             return None
     return None
 
+def get_db():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def create_tables():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            github_token TEXT,
+            github_owner TEXT,
+            github_repo TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def create_user(username, password):
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (username, hash_password(password)))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def get_user_by_username(username):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT * FROM users WHERE username = ?', (username,))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+def verify_user_password(username, password):
+    user = get_user_by_username(username)
+    if user and user['password_hash'] == hash_password(password):
+        return True
+    return False
+
+def set_github_config_for_user(username, token, owner, repo):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('UPDATE users SET github_token=?, github_owner=?, github_repo=? WHERE username=?', (token, owner, repo, username))
+    conn.commit()
+    conn.close()
+
+def get_github_config_for_user(username):
+    user = get_user_by_username(username)
+    if user:
+        return {
+            'token': user['github_token'],
+            'owner': user['github_owner'],
+            'repo': user['github_repo']
+        }
+    return None
+
 # Initialize database on import
 init_db()
+create_tables()
