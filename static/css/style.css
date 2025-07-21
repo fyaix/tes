@@ -990,13 +990,12 @@ small {
   color: var(--text-secondary);
 }
 
-/* Testing Table */
+/* Testing Table - USER REQUEST: No scroll, auto-expand downward */
 .testing-table-container {
-  max-height: 500px;
-  overflow-y: auto;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
   background: var(--bg-primary);
+  /* Removed max-height and overflow-y for auto-expansion */
 }
 
 .testing-table {
@@ -1012,9 +1011,7 @@ small {
   text-align: left;
   font-weight: 600;
   border-bottom: 2px solid var(--border-primary);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  /* Removed sticky positioning - no longer needed without scroll */
 }
 
 .testing-table td {
