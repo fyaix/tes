@@ -234,6 +234,26 @@ function setupFormHandlers() {
     
     // GitHub setup
     document.getElementById('setup-github-btn').addEventListener('click', setupGitHub);
+
+    // --- AUTO SETUP GITHUB DAN LOAD FILES ---
+    const githubInputs = ['github-token', 'github-owner', 'github-repo'];
+    githubInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', async function() {
+                const token = document.getElementById('github-token').value.trim();
+                const owner = document.getElementById('github-owner').value.trim();
+                const repo = document.getElementById('github-repo').value.trim();
+                if (token && owner && repo) {
+                    await setupGitHub();
+                    // Tampilkan file selection jika sukses
+                    document.getElementById('github-file-selection').style.display = 'block';
+                    await loadGitHubFiles();
+                }
+            });
+        }
+    });
+    // --- END AUTO SETUP ---
     
     // Template setup - USER REQUEST: Smart detect, no manual load button
     
