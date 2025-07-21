@@ -1074,6 +1074,67 @@ small {
   text-align: left;
 }
 
+/* USER REQUEST: Single page layout - replace sections with page-sections */
+.page-section {
+  margin-bottom: var(--space-xl);
+  padding-bottom: var(--space-xl);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.page-section:last-child {
+  border-bottom: none;
+}
+
+/* USER REQUEST: Setup options dengan card design */
+.setup-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.setup-option {
+  cursor: pointer;
+  display: block;
+}
+
+.setup-option input[type="radio"] {
+  display: none;
+}
+
+.option-card {
+  border: 2px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  text-align: center;
+  transition: all 0.3s ease;
+  background: var(--bg-primary);
+}
+
+.setup-option input[type="radio"]:checked + .option-card {
+  border-color: var(--primary);
+  background: rgba(59, 130, 246, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.option-icon {
+  font-size: 2rem;
+  margin-bottom: var(--space-sm);
+}
+
+.option-info h4 {
+  margin: 0 0 var(--space-xs) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+}
+
+.option-info p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 /* Config Info */
 .config-info {
   display: grid;

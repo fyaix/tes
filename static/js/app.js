@@ -78,6 +78,62 @@ async function checkTestingStatusOnLoad() {
     }
 }
 
+// USER REQUEST: Handle setup source change (Template vs GitHub)
+function handleSetupSourceChange(event) {
+    const selectedSource = event.target.value;
+    const githubCard = document.getElementById('github-setup-card');
+    const templateCard = document.getElementById('template-load-card');
+    
+    if (selectedSource === 'github') {
+        githubCard.style.display = 'block';
+        templateCard.style.display = 'none';
+        
+        // Load saved GitHub config from database
+        loadSavedGitHubConfig();
+    } else {
+        githubCard.style.display = 'none';
+        templateCard.style.display = 'block';
+    }
+}
+
+// USER REQUEST: Load template configuration
+async function loadTemplateConfig() {
+    setButtonLoading('load-template-btn', true);
+    updateStatus('Loading template configuration...', 'info');
+    
+    try {
+        const response = await fetch('/api/load-template-config');
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Template Loaded', 'Template configuration loaded successfully!', 'success');
+            updateStatus('Template configuration ready', 'success');
+            
+            // Show setup status
+            showSetupStatus('Template configuration loaded and ready to use.', 'success');
+        } else {
+            showToast('Load Failed', data.message, 'error');
+            updateStatus('Template load failed', 'error');
+        }
+    } catch (error) {
+        console.error('Template load error:', error);
+        showToast('Load Error', 'Failed to load template configuration', 'error');
+        updateStatus('Template load error', 'error');
+    } finally {
+        setButtonLoading('load-template-btn', false);
+    }
+}
+
+// Show setup status message
+function showSetupStatus(message, type) {
+    const statusCard = document.getElementById('setup-status');
+    const statusMessage = document.getElementById('setup-status-message');
+    
+    statusMessage.textContent = message;
+    statusMessage.className = `status-message ${type}`;
+    statusCard.style.display = 'block';
+}
+
 // USER REQUEST: Clear VPN input textarea
 function clearVpnInput() {
     const textarea = document.getElementById('vpn-links');
@@ -193,11 +249,16 @@ function setupEventListeners() {
 
 // Setup form handlers
 function setupFormHandlers() {
+    // USER REQUEST: Setup source options (Template vs GitHub)
+    document.querySelectorAll('input[name="setup-source"]').forEach(radio => {
+        radio.addEventListener('change', handleSetupSourceChange);
+    });
+    
     // GitHub setup
     document.getElementById('setup-github-btn').addEventListener('click', setupGitHub);
     
-    // Load configuration
-    document.getElementById('load-config-btn').addEventListener('click', loadConfiguration);
+    // Template setup
+    document.getElementById('load-template-btn').addEventListener('click', loadTemplateConfig);
     
     // Add links and test
     document.getElementById('add-and-test-btn').addEventListener('click', addLinksAndTest);
@@ -332,7 +393,8 @@ async function setupGitHub() {
     updateStatus('Configuring GitHub...', 'info');
     
     try {
-        const response = await fetch('/api/setup-github', {
+        // USER REQUEST: Save GitHub config to database
+        const response = await fetch('/api/save-github-config', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -343,14 +405,20 @@ async function setupGitHub() {
         const data = await response.json();
         
         if (data.success) {
-            isGitHubConfigured = true;
-            updateGitHubStatus('success');
-            showToast('Success', data.message, 'success');
-            updateStatus('GitHub configured', 'success');
+            updateGitHubStatus('Configured');
+            showToast('GitHub Saved', 'GitHub configuration saved successfully!', 'success');
+            updateStatus('GitHub configuration saved', 'success');
+            
+            // Show file selection for loading config
+            document.getElementById('github-file-selection').style.display = 'block';
+            loadGitHubFiles(owner, repo, token);
+            
+            // Show setup status
+            showSetupStatus('GitHub configuration saved. Select a file to load configuration.', 'success');
         } else {
-            updateGitHubStatus('error');
-            showToast('Configuration Failed', data.message, 'error');
-            updateStatus('GitHub configuration failed', 'error');
+            updateGitHubStatus('Error');
+            showToast('Save Failed', data.message, 'error');
+            updateStatus('GitHub save failed', 'error');
         }
     } catch (error) {
         console.error('GitHub setup error:', error);
@@ -409,20 +477,37 @@ async function loadGitHubFiles() {
     }
 }
 
-// Load saved GitHub configuration
+// USER REQUEST: Load saved GitHub configuration from database with auto-fill
 async function loadSavedGitHubConfig() {
     try {
         const response = await fetch('/api/get-github-config');
         const data = await response.json();
         
-        if (data.success && data.config.configured) {
-            document.getElementById('github-owner').value = data.config.owner;
-            document.getElementById('github-repo').value = data.config.repo;
-            isGitHubConfigured = true;
-            updateGitHubStatus('success');
+        if (data.success) {
+            // Auto-fill owner (from database)
+            if (data.owner) {
+                document.getElementById('github-owner').value = data.owner;
+            }
+            
+            // Auto-fill repo but keep it editable (USER REQUEST)
+            if (data.repo) {
+                document.getElementById('github-repo').value = data.repo;
+            }
+            
+            // Show token status without revealing actual token
+            if (data.has_token) {
+                document.getElementById('github-token').placeholder = 'Token saved (enter new token to update)';
+                updateGitHubStatus('Configured');
+            } else {
+                updateGitHubStatus('Token Required');
+            }
+        } else {
+            console.log('No saved GitHub config found');
+            updateGitHubStatus('Not Configured');
         }
     } catch (error) {
-        console.error('Load GitHub config error:', error);
+        console.error('Error loading GitHub config:', error);
+        updateGitHubStatus('Error');
     }
 }
 

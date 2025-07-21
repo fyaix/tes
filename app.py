@@ -646,6 +646,104 @@ def get_testing_status():
             'accounts_count': len(session_data['all_accounts'])
         })
 
+@app.route('/api/load-template-config')
+def load_template_config():
+    """USER REQUEST: Load local template configuration"""
+    try:
+        import os
+        template_path = os.path.join(os.getcwd(), 'template.json')
+        
+        if os.path.exists(template_path):
+            with open(template_path, 'r') as f:
+                template_config = json.load(f)
+            
+            # Store in session
+            session_data['template_config'] = template_config
+            
+            return jsonify({
+                'success': True,
+                'message': 'Template configuration loaded successfully',
+                'config': template_config
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Template file not found. Please ensure template.json exists.'
+            })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Failed to load template: {str(e)}'
+        })
+
+@app.route('/api/get-github-config')
+def get_github_config():
+    """USER REQUEST: Get saved GitHub config from database for auto-fill"""
+    try:
+        # Simple file-based storage for GitHub config
+        config_file = 'github_config.json'
+        
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                github_config = json.load(f)
+            
+            # Don't send token for security, just owner (repo editable)
+            return jsonify({
+                'success': True,
+                'owner': github_config.get('owner', ''),
+                'repo': github_config.get('repo', ''),
+                'has_token': bool(github_config.get('token', ''))
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No saved GitHub configuration found'
+            })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Failed to load GitHub config: {str(e)}'
+        })
+
+@app.route('/api/save-github-config', methods=['POST'])
+def save_github_config():
+    """USER REQUEST: Save GitHub config to database with token persistence"""
+    try:
+        data = request.json
+        token = data.get('token', '').strip()
+        owner = data.get('owner', '').strip()
+        repo = data.get('repo', '').strip()
+        
+        if not all([token, owner, repo]):
+            return jsonify({
+                'success': False,
+                'message': 'Token, owner, and repo are required'
+            })
+        
+        # Save to simple file storage
+        github_config = {
+            'token': token,
+            'owner': owner,
+            'repo': repo
+        }
+        
+        config_file = 'github_config.json'
+        with open(config_file, 'w') as f:
+            json.dump(github_config, f, indent=2)
+        
+        return jsonify({
+            'success': True,
+            'message': 'GitHub configuration saved successfully'
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Failed to save GitHub config: {str(e)}'
+        })
+
 @app.route('/api/get-accounts')
 def get_accounts():
     """Get all parsed VPN accounts for server replacement"""

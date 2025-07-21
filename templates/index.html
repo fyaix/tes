@@ -69,66 +69,69 @@
 
         <!-- Content Sections -->
         <main class="main">
-            <!-- Setup Section -->
-            <section id="setup" class="section active">
+            <!-- Configuration Setup - USER REQUEST: Single page layout dengan setup options -->
+            <div class="page-section">
                 <div class="section-header">
-                    <h2>Configuration Setup</h2>
-                    <p>Configure GitHub integration and load initial configuration</p>
+                    <h2>🔧 Configuration Setup</h2>
+                    <p>Choose your configuration source and setup options</p>
                 </div>
 
-                <!-- GitHub Setup -->
+                <!-- Setup Source Options -->
                 <div class="card">
                     <div class="card-header">
-                        <h3>GitHub Integration</h3>
+                        <h3>📁 Configuration Source</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="setup-options">
+                            <label class="setup-option">
+                                <input type="radio" name="setup-source" value="template" checked>
+                                <div class="option-card">
+                                    <div class="option-icon">📄</div>
+                                    <div class="option-info">
+                                        <h4>Local Template</h4>
+                                        <p>Use built-in template.json configuration</p>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="setup-option">
+                                <input type="radio" name="setup-source" value="github">
+                                <div class="option-card">
+                                    <div class="option-icon">🐙</div>
+                                    <div class="option-info">
+                                        <h4>GitHub Repository</h4>
+                                        <p>Load configuration from GitHub repo</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GitHub Setup Card (shown when GitHub option selected) -->
+                <div class="card" id="github-setup-card" style="display: none;">
+                    <div class="card-header">
+                        <h3>🐙 GitHub Configuration</h3>
                         <span class="badge" id="github-status">Not Configured</span>
                     </div>
                     <div class="card-content">
                         <div class="form-group">
                             <label for="github-token">GitHub Token</label>
                             <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
+                            <small>Personal access token with repo permissions</small>
                         </div>
                         <div class="form-group">
                             <label for="github-owner">Repository Owner</label>
                             <input type="text" id="github-owner" placeholder="username">
+                            <small>GitHub username or organization (auto-filled from database)</small>
                         </div>
                         <div class="form-group">
                             <label for="github-repo">Repository Name</label>
                             <input type="text" id="github-repo" placeholder="repository">
+                            <small>Repository name (editable even when auto-filled)</small>
                         </div>
-                        <button class="btn btn-primary" id="setup-github-btn">
-                            <span class="btn-text">Configure GitHub</span>
-                            <div class="btn-loader hidden"></div>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Config Source -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Configuration Source</h3>
-                    </div>
-                    <div class="card-content">
-                        <div class="radio-group">
-                            <label class="radio-option">
-                                <input type="radio" name="config-source" value="local" checked>
-                                <span class="radio-custom"></span>
-                                <span class="radio-label">
-                                    <strong>Local Template</strong>
-                                    <small>Use local template.json file</small>
-                                </span>
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="config-source" value="github">
-                                <span class="radio-custom"></span>
-                                <span class="radio-label">
-                                    <strong>GitHub Repository</strong>
-                                    <small>Load from GitHub repository</small>
-                                </span>
-                            </label>
-                        </div>
-
+                        
                         <!-- GitHub File Selection -->
-                        <div id="github-file-selection" class="hidden">
+                        <div id="github-file-selection" style="display: none;">
                             <div class="form-group">
                                 <label for="github-files">Select Configuration File</label>
                                 <select id="github-files">
@@ -137,25 +140,40 @@
                             </div>
                         </div>
 
-                        <button class="btn btn-primary" id="load-config-btn">
-                            <span class="btn-text">Load Configuration</span>
+                        <button class="btn btn-primary" id="setup-github-btn">
+                            <span class="btn-text">💾 Save & Load GitHub Config</span>
                             <div class="btn-loader hidden"></div>
                         </button>
                     </div>
                 </div>
 
-                <!-- Status -->
+                <!-- Template Load Card (shown when Template option selected) -->
+                <div class="card" id="template-load-card">
+                    <div class="card-header">
+                        <h3>📄 Template Configuration</h3>
+                        <span class="badge success">Ready</span>
+                    </div>
+                    <div class="card-content">
+                        <p>Using built-in template.json configuration file.</p>
+                        <button class="btn btn-success" id="load-template-btn">
+                            <span class="btn-text">📁 Load Template Config</span>
+                            <div class="btn-loader hidden"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Setup Status -->
                 <div class="card" id="setup-status" style="display: none;">
                     <div class="card-content">
                         <div class="status-message" id="setup-status-message"></div>
                     </div>
                 </div>
-            </section>
+            </div>
 
             <!-- Add Links & Test Section -->
-            <section id="accounts" class="section">
+            <div class="page-section">
                 <div class="section-header">
-                    <h2>Add VPN Links & Test</h2>
+                    <h2>🔗 Add VPN Links & Test</h2>
                     <p>Paste your VPN links and start testing immediately</p>
                 </div>
 
@@ -270,12 +288,12 @@ https://pastebin.com/raw/ABC123
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
 
             <!-- Live Testing Section -->
-            <section id="testing" class="section">
+            <div class="page-section">
                 <div class="section-header">
-                    <h2>Live Testing Progress</h2>
+                    <h2>📊 Live Testing Progress</h2>
                     <p>Real-time VPN connection testing results</p>
                 </div>
 
@@ -353,10 +371,10 @@ https://pastebin.com/raw/ABC123
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
 
             <!-- Results Section -->
-            <section id="results" class="section">
+            <div class="page-section">
                 <div class="section-header">
                     <h2>Test Results</h2>
                     <p>View detailed results and successful connections</p>
@@ -403,12 +421,12 @@ https://pastebin.com/raw/ABC123
                         </div>
                     </div>
                 </div>
-            </section>
+            </div>
 
             <!-- Download/Upload Section -->
-            <section id="export" class="section">
+            <div class="page-section">
                 <div class="section-header">
-                    <h2>Download & Upload</h2>
+                    <h2>⬇️ Download & Upload</h2>
                     <p>Your configuration has been auto-generated and is ready!</p>
                 </div>
 
@@ -465,7 +483,7 @@ https://pastebin.com/raw/ABC123
                         <small>Uploads the configuration to your GitHub repository</small>
                     </div>
                 </div>
-            </section>
+            </div>
         </main>
 
         <!-- Toast Notifications -->
