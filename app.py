@@ -387,13 +387,13 @@ def handle_start_testing():
             
             session_data['test_results'] = live_results
             
-            # Emit initial results
+            # USER REQUEST: Don't emit initial WAIT accounts - show accounts only when testing starts
             initial_data = {
-                'results': [dict(res) for res in live_results],
+                'results': [],  # Empty - accounts will appear when testing starts
                 'total': len(live_results),
                 'completed': 0
             }
-            print(f"Emitting initial data: {len(live_results)} accounts")
+            print(f"Starting testing for {len(live_results)} accounts - table will show accounts as they are tested")
             socketio.emit('testing_update', initial_data)
             
             # Create semaphore and run tests

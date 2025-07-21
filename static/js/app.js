@@ -789,7 +789,8 @@ function updateLiveResults(results) {
         const resultId = `${result.VpnType || result.type || 'unknown'}_${result.server || backendIndex}`;
         
         // Check if this account is being tested or completed
-        const isBeingTested = result.Status && !['WAIT', '🔄', '🔁'].includes(result.Status);
+        // USER REQUEST: Show accounts only when they start testing (not WAIT status)
+        const isBeingTested = result.Status && result.Status !== 'WAIT';
         
         if (isBeingTested) {
             // Assign global display order if not already assigned
