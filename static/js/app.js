@@ -405,9 +405,13 @@ async function setupGitHub() {
             updateGitHubStatus('Configured');
             showToast('GitHub Saved', 'GitHub configuration saved successfully!', 'success');
             updateStatus('GitHub configuration saved', 'success');
-            
+            isGitHubConfigured = true; // Pastikan ini di-set agar loadGitHubFiles bisa jalan
             // USER REQUEST: No manual file selection, will auto-detect saat start testing
             showSetupStatus('GitHub configuration saved. Start testing to automatically use GitHub config.', 'success');
+            // Tambahkan log dan panggil loadGitHubFiles
+            console.log('[DEBUG] setupGitHub sukses, memanggil loadGitHubFiles()');
+            document.getElementById('github-file-selection').style.display = 'block';
+            await loadGitHubFiles();
         } else {
             updateGitHubStatus('Error');
             showToast('Save Failed', data.message, 'error');
