@@ -902,60 +902,25 @@ function formatLatency(latency) {
     return `${Math.round(numLatency)}ms`;
 }
 
-// USER REQUEST: Animated status dot with glowing effect + dead/timeout handling + retry progress
+// USER REQUEST: Minimalist status with dots only (no text for cleaner UI)
 function createAnimatedStatus(status, isActive) {
     if (status.includes('Testing') || status.includes('Retry') || isActive) {
-        return `
-            <div class="status-testing">
-                <span class="status-dot testing-dot"></span>
-                <span class="status-text">Testing...</span>
-            </div>
-        `;
+        return `<span class="status-dot testing-dot" title="Testing..."></span>`;
     } else if (status.includes('Timeout Retry')) {
-        // USER REQUEST: Show retry progress for timeout
+        // USER REQUEST: Show retry progress for timeout (dot only with tooltip)
         const retryMatch = status.match(/Timeout Retry (\d+)\/(\d+)/);
         const retryText = retryMatch ? retryMatch[0] : 'Retrying...';
-        return `
-            <div class="status-retry">
-                <span class="status-dot retry-dot"></span>
-                <span class="status-text">${retryText}</span>
-            </div>
-        `;
+        return `<span class="status-dot retry-dot" title="${retryText}"></span>`;
     } else if (status === '●' || status === '✅' || status.includes('Success')) {
-        return `
-            <div class="status-success">
-                <span class="status-dot success-dot"></span>
-                <span class="status-text">Success</span>
-            </div>
-        `;
+        return `<span class="status-dot success-dot" title="Success"></span>`;
     } else if (status.includes('Timeout') || status.includes('timeout')) {
-        return `
-            <div class="status-timeout">
-                <span class="status-dot timeout-dot"></span>
-                <span class="status-text">Timeout</span>
-            </div>
-        `;
+        return `<span class="status-dot timeout-dot" title="Timeout"></span>`;
     } else if (status.includes('Dead') || status.includes('dead') || status.includes('unreachable')) {
-        return `
-            <div class="status-dead">
-                <span class="status-dot dead-dot"></span>
-                <span class="status-text">Dead</span>
-            </div>
-        `;
+        return `<span class="status-dot dead-dot" title="Dead"></span>`;
     } else if (status.startsWith('✖') || status.includes('Failed') || status.includes('Error') || status.includes('failed')) {
-        return `
-            <div class="status-failed">
-                <span class="status-dot failed-dot"></span>
-                <span class="status-text">Failed</span>
-            </div>
-        `;
+        return `<span class="status-dot failed-dot" title="Failed"></span>`;
     } else {
-        return `
-            <div class="status-waiting">
-                <span class="status-dot waiting-dot"></span>
-                <span class="status-text">Waiting</span>
-            </div>
-        `;
+        return `<span class="status-dot waiting-dot" title="Waiting"></span>`;
     }
 }
 

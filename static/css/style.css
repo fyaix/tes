@@ -488,14 +488,15 @@ body {
   line-height: 1.5;
 }
 
-/* USER REQUEST: Animated Status Dots & Progressive Table */
+/* USER REQUEST: Minimalist dots only (larger for better visibility without text) */
 .status-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  margin-right: 6px;
+  margin: 0 auto;
   position: relative;
+  cursor: help; /* Show cursor hint for tooltip */
 }
 
 /* Testing status - animated glowing dot */
@@ -579,49 +580,7 @@ body {
   opacity: 0.6;
 }
 
-/* Status containers */
-.status-testing,
-.status-success,
-.status-failed,
-.status-timeout,
-.status-dead,
-.status-retry,
-.status-waiting {
-  display: flex;
-  align-items: center;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.status-testing .status-text {
-  color: #fbbf24;
-}
-
-.status-success .status-text {
-  color: #22c55e;
-}
-
-.status-failed .status-text {
-  color: #ef4444;
-}
-
-.status-timeout .status-text {
-  color: #f97316;
-}
-
-.status-dead .status-text {
-  color: #991b1b;
-  font-weight: 600;
-}
-
-.status-retry .status-text {
-  color: #fbbf24;
-  font-weight: 500;
-}
-
-.status-waiting .status-text {
-  color: var(--text-muted);
-}
+/* USER REQUEST: Status containers removed for minimalist dot-only design */
 
 /* Progressive Table Row Animations */
 .testing-row-new {
@@ -677,7 +636,8 @@ body {
 }
 
 .status-cell {
-  min-width: 100px;
+  min-width: 80px;
+  text-align: center; /* Center the dots */
 }
 
 label {
