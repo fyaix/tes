@@ -117,19 +117,7 @@ def setup_github():
     else:
         return jsonify({'success': False, 'message': 'All fields are required'})
 
-@app.route('/api/get-github-config')
-def get_github_config_api():
-    config = get_github_config()
-    if config:
-        # Also set up the client if config exists
-        session_data['github_client'] = GitHubClient(config['token'], config['owner'], config['repo'])
-        return jsonify({'success': True, 'config': {
-            'owner': config['owner'],
-            'repo': config['repo'],
-            'configured': True
-        }})
-    else:
-        return jsonify({'success': False, 'configured': False})
+# Removed duplicate endpoint - using new implementation below
 
 @app.route('/api/list-github-files')
 def list_github_files():

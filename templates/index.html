@@ -141,24 +141,21 @@
                         </div>
 
                         <button class="btn btn-primary" id="setup-github-btn">
-                            <span class="btn-text">💾 Save & Load GitHub Config</span>
+                            <span class="btn-text">💾 Save GitHub Config</span>
                             <div class="btn-loader hidden"></div>
                         </button>
                     </div>
                 </div>
 
-                <!-- Template Load Card (shown when Template option selected) -->
-                <div class="card" id="template-load-card">
+                <!-- Template Status Card (shown when Template option selected) -->
+                <div class="card" id="template-status-card">
                     <div class="card-header">
                         <h3>📄 Template Configuration</h3>
                         <span class="badge success">Ready</span>
                     </div>
                     <div class="card-content">
-                        <p>Using built-in template.json configuration file.</p>
-                        <button class="btn btn-success" id="load-template-btn">
-                            <span class="btn-text">📁 Load Template Config</span>
-                            <div class="btn-loader hidden"></div>
-                        </button>
+                        <p>✅ Using built-in template.json configuration file.</p>
+                        <small>Configuration will be automatically loaded when you start testing.</small>
                     </div>
                 </div>
 

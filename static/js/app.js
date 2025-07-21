@@ -78,11 +78,11 @@ async function checkTestingStatusOnLoad() {
     }
 }
 
-// USER REQUEST: Handle setup source change (Template vs GitHub)
+// USER REQUEST: Handle setup source change (Template vs GitHub) - Smart detect
 function handleSetupSourceChange(event) {
     const selectedSource = event.target.value;
     const githubCard = document.getElementById('github-setup-card');
-    const templateCard = document.getElementById('template-load-card');
+    const templateCard = document.getElementById('template-status-card');
     
     if (selectedSource === 'github') {
         githubCard.style.display = 'block';
@@ -93,34 +93,43 @@ function handleSetupSourceChange(event) {
     } else {
         githubCard.style.display = 'none';
         templateCard.style.display = 'block';
+        
+        // Show template ready status
+        showSetupStatus('Template configuration ready. Start testing to use local template.', 'success');
     }
 }
 
-// USER REQUEST: Load template configuration
-async function loadTemplateConfig() {
-    setButtonLoading('load-template-btn', true);
-    updateStatus('Loading template configuration...', 'info');
+// USER REQUEST: Smart detect - auto-load configuration saat start testing
+function getSelectedConfigSource() {
+    const selectedRadio = document.querySelector('input[name="setup-source"]:checked');
+    return selectedRadio ? selectedRadio.value : 'template';
+}
+
+// Load configuration based on selected source
+async function loadConfigurationBasedOnSource() {
+    const source = getSelectedConfigSource();
     
-    try {
-        const response = await fetch('/api/load-template-config');
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Template Loaded', 'Template configuration loaded successfully!', 'success');
-            updateStatus('Template configuration ready', 'success');
+    if (source === 'template') {
+        // Auto-load template configuration
+        try {
+            const response = await fetch('/api/load-template-config');
+            const data = await response.json();
             
-            // Show setup status
-            showSetupStatus('Template configuration loaded and ready to use.', 'success');
-        } else {
-            showToast('Load Failed', data.message, 'error');
-            updateStatus('Template load failed', 'error');
+            if (data.success) {
+                console.log('✅ Template configuration loaded automatically');
+                return { success: true, source: 'template' };
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Template auto-load error:', error);
+            showToast('Template Error', 'Failed to load template configuration', 'error');
+            return { success: false, source: 'template', error: error.message };
         }
-    } catch (error) {
-        console.error('Template load error:', error);
-        showToast('Load Error', 'Failed to load template configuration', 'error');
-        updateStatus('Template load error', 'error');
-    } finally {
-        setButtonLoading('load-template-btn', false);
+    } else {
+        // Use GitHub configuration (already saved)
+        console.log('✅ Using saved GitHub configuration');
+        return { success: true, source: 'github' };
     }
 }
 
@@ -257,8 +266,7 @@ function setupFormHandlers() {
     // GitHub setup
     document.getElementById('setup-github-btn').addEventListener('click', setupGitHub);
     
-    // Template setup
-    document.getElementById('load-template-btn').addEventListener('click', loadTemplateConfig);
+    // Template setup - USER REQUEST: Smart detect, no manual load button
     
     // Add links and test
     document.getElementById('add-and-test-btn').addEventListener('click', addLinksAndTest);
@@ -409,12 +417,8 @@ async function setupGitHub() {
             showToast('GitHub Saved', 'GitHub configuration saved successfully!', 'success');
             updateStatus('GitHub configuration saved', 'success');
             
-            // Show file selection for loading config
-            document.getElementById('github-file-selection').style.display = 'block';
-            loadGitHubFiles(owner, repo, token);
-            
-            // Show setup status
-            showSetupStatus('GitHub configuration saved. Select a file to load configuration.', 'success');
+            // USER REQUEST: No manual file selection, will auto-detect saat start testing
+            showSetupStatus('GitHub configuration saved. Start testing to automatically use GitHub config.', 'success');
         } else {
             updateGitHubStatus('Error');
             showToast('Save Failed', data.message, 'error');
@@ -631,7 +635,7 @@ function updateSmartDetectionPreview(text) {
     }
 }
 
-// Add links and start testing
+// Add links and start testing - USER REQUEST: Smart detect config source
 async function addLinksAndTest() {
     const inputText = document.getElementById('vpn-links').value.trim();
     
@@ -642,6 +646,16 @@ async function addLinksAndTest() {
     
     setButtonLoading('add-and-test-btn', true);
     updateStatus('🤖 Smart processing input...', 'info');
+    
+    // USER REQUEST: Smart detect dan auto-load configuration
+    const configResult = await loadConfigurationBasedOnSource();
+    if (!configResult.success) {
+        setButtonLoading('add-and-test-btn', false);
+        updateStatus('Configuration load failed', 'error');
+        return;
+    }
+    
+    console.log(`🔧 Using ${configResult.source} configuration for testing`);
     
     try {
         const response = await fetch('/api/add-links-and-test', {
