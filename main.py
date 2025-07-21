@@ -2,11 +2,13 @@ import os
 import json
 import re
 import asyncio
+import requests
 from datetime import datetime
 from rich.table import Table
 from rich.console import Console
 from rich.live import Live
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 from github_client import GitHubClient
 from core import (
@@ -21,28 +23,242 @@ TEMPLATE_FILE = "template.json"
 SPINNERS = ["◐", "◓", "◑", "◒"]
 DOTS = ["⠁", "⠂", "⠄", "⠂"]
 
+def fetch_vpn_links_from_raw_url(raw_url):
+    """
+    USER REQUEST: Fetch VPN links from raw text URL
+    Example: https://raw.githubusercontent.com/user/repo/main/vpn-links.txt
+    """
+    console = Console()
+    
+    try:
+        console.print(f"\n[bold blue]📄 Fetching VPN links from raw URL...[/bold blue]")
+        console.print(f"[dim]URL: {raw_url}[/dim]")
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(raw_url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        # Extract VPN links from raw text
+        content = response.text
+        console.print(f"[green]✔️ Raw content received ({len(content)} chars)[/green]")
+        
+        # Extract all VPN links dengan regex
+        vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s\n\r]+"
+        vpn_links = re.findall(vpn_pattern, content)
+        
+        if vpn_links:
+            console.print(f"[bold green]✔️ Successfully extracted {len(vpn_links)} VPN links from raw URL![/bold green]")
+            
+            # Show preview
+            console.print(f"\n[bold cyan]Preview of extracted links:[/bold cyan]")
+            for i, link in enumerate(vpn_links[:3], 1):
+                preview = link[:50] + "..." if len(link) > 50 else link
+                console.print(f"  {i}. {preview}")
+            
+            if len(vpn_links) > 3:
+                console.print(f"  ... and {len(vpn_links) - 3} more links")
+                
+            return vpn_links
+        else:
+            console.print(f"[red]❌ No VPN links found in raw content[/red]")
+            return []
+            
+    except requests.exceptions.Timeout:
+        console.print(f"[red]❌ Request timeout - URL took too long to respond[/red]")
+        return []
+    except requests.exceptions.ConnectionError:
+        console.print(f"[red]❌ Connection error - Could not reach URL[/red]")
+        return []
+    except requests.exceptions.HTTPError as e:
+        console.print(f"[red]❌ HTTP error: {e}[/red]")
+        return []
+    except Exception as e:
+        console.print(f"[red]❌ Error fetching from raw URL: {e}[/red]")
+        return []
+
+def fetch_vpn_links_from_api(api_url):
+    """
+    USER REQUEST: Fetch VPN links from API URL  
+    Example: https://admin.ari-andika2.site/api/v2ray?type=vless&bug=quiz.int.vidio.com&tls=true&wildcard=false&limit=5&country=SG
+    """
+    console = Console()
+    
+    try:
+        console.print(f"\n[bold blue]🌐 Fetching VPN links from API...[/bold blue]")
+        console.print(f"[dim]URL: {api_url}[/dim]")
+        
+        # Add timeout and headers
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(api_url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        # Try to parse response
+        try:
+            # If JSON response
+            data = response.json()
+            console.print(f"[green]✔️ JSON response received[/green]")
+            
+            # Extract VPN links from JSON (flexible extraction)
+            vpn_links = []
+            
+            # Handle different JSON structures
+            if isinstance(data, list):
+                # Direct list of links
+                for item in data:
+                    if isinstance(item, str) and any(proto in item for proto in ['vless://', 'vmess://', 'trojan://', 'ss://']):
+                        vpn_links.append(item)
+                    elif isinstance(item, dict):
+                        # Look for link field in dict
+                        for key, value in item.items():
+                            if isinstance(value, str) and any(proto in value for proto in ['vless://', 'vmess://', 'trojan://', 'ss://']):
+                                vpn_links.append(value)
+            elif isinstance(data, dict):
+                # Look for VPN links in dict values
+                def extract_from_dict(d):
+                    for key, value in d.items():
+                        if isinstance(value, str) and any(proto in value for proto in ['vless://', 'vmess://', 'trojan://', 'ss://']):
+                            vpn_links.append(value)
+                        elif isinstance(value, list):
+                            for item in value:
+                                if isinstance(item, str) and any(proto in item for proto in ['vless://', 'vmess://', 'trojan://', 'ss://']):
+                                    vpn_links.append(item)
+                        elif isinstance(value, dict):
+                            extract_from_dict(value)
+                
+                extract_from_dict(data)
+            
+        except json.JSONDecodeError:
+            # If plain text response, extract VPN links with regex
+            console.print(f"[yellow]⚠️ Plain text response, extracting with regex[/yellow]")
+            content = response.text
+            vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s\n]+"
+            vpn_links = re.findall(vpn_pattern, content)
+        
+        if vpn_links:
+            console.print(f"[bold green]✔️ Successfully fetched {len(vpn_links)} VPN links from API![/bold green]")
+            
+            # Show preview
+            console.print(f"\n[bold cyan]Preview of fetched links:[/bold cyan]")
+            for i, link in enumerate(vpn_links[:3], 1):
+                # Show first 50 chars
+                preview = link[:50] + "..." if len(link) > 50 else link
+                console.print(f"  {i}. {preview}")
+            
+            if len(vpn_links) > 3:
+                console.print(f"  ... and {len(vpn_links) - 3} more links")
+                
+            return vpn_links
+        else:
+            console.print(f"[red]❌ No VPN links found in API response[/red]")
+            return []
+            
+    except requests.exceptions.Timeout:
+        console.print(f"[red]❌ Request timeout - API took too long to respond[/red]")
+        return []
+    except requests.exceptions.ConnectionError:
+        console.print(f"[red]❌ Connection error - Could not reach API[/red]")
+        return []
+    except requests.exceptions.HTTPError as e:
+        console.print(f"[red]❌ HTTP error: {e}[/red]")
+        return []
+    except Exception as e:
+        console.print(f"[red]❌ Error fetching from API: {e}[/red]")
+        return []
+
 def get_user_vpn_links():
     console = Console()
-    console.print(
-        "\n[bold cyan]Paste akun baru (jika ada). Ketik 'selesai' di baris baru jika sudah.[/bold cyan]"
-    )
-    lines = []
+    
+    # Ask user for input method
+    console.print("\n[bold cyan]Choose input method:[/bold cyan]")
+    console.print("1. [bold blue]Manual paste[/bold blue] - Paste individual VPN links manually")
+    console.print("2. [bold green]API URL[/bold green] - Fetch multiple VPN links from API endpoint")  
+    console.print("3. [bold yellow]Raw URL[/bold yellow] - Fetch VPN links from raw text URL (GitHub, Pastebin, etc.)")
+    
     while True:
         try:
-            line = input()
+            choice = input("\nEnter choice (1, 2, or 3): ").strip()
+            if choice in ['1', '2', '3']:
+                break
+            console.print("[red]Please enter 1, 2, or 3[/red]")
         except EOFError:
-            break
-        if line.strip().lower() == "selesai":
-            break
-        lines.append(line)
-    full_text = "\n".join(lines)
-    vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s]+"
-    found_links = re.findall(vpn_pattern, full_text)
-    if found_links:
+            return []
+    
+    if choice == '1':
+        # Manual paste (original method)
         console.print(
-            f"✔️ Ditemukan {len(found_links)} link VPN baru.", style="bold green"
+            "\n[bold cyan]Paste VPN links (individual). Ketik 'selesai' di baris baru jika sudah.[/bold cyan]"
         )
-    return found_links
+        console.print("[dim]Example: vless://uuid@server:443?path=/path&security=tls&host=host.com#name[/dim]")
+        
+        lines = []
+        while True:
+            try:
+                line = input()
+            except EOFError:
+                break
+            if line.strip().lower() == "selesai":
+                break
+            lines.append(line)
+        full_text = "\n".join(lines)
+        vpn_pattern = r"(?:vless|vmess|trojan|ss)://[^\s]+"
+        found_links = re.findall(vpn_pattern, full_text)
+        if found_links:
+            console.print(
+                f"✔️ Ditemukan {len(found_links)} link VPN.", style="bold green"
+            )
+        return found_links
+    
+    elif choice == '2':
+        # API URL input
+        console.print("\n[bold cyan]Enter API URL to fetch VPN links:[/bold cyan]")
+        console.print("[dim]Example: https://admin.ari-andika2.site/api/v2ray?type=vless&bug=quiz.int.vidio.com&tls=true&limit=5&country=SG[/dim]")
+        
+        try:
+            api_url = input("API URL: ").strip()
+            if not api_url:
+                console.print("[red]❌ No URL provided[/red]")
+                return []
+            
+            # Validate URL
+            parsed = urlparse(api_url)
+            if not parsed.scheme or not parsed.netloc:
+                console.print("[red]❌ Invalid URL format[/red]")
+                return []
+            
+            return fetch_vpn_links_from_api(api_url)
+            
+        except EOFError:
+            return []
+    
+    else:  # choice == '3'
+        # Raw URL input  
+        console.print("\n[bold cyan]Enter Raw URL containing VPN links:[/bold cyan]")
+        console.print("[dim]Example: https://raw.githubusercontent.com/user/repo/main/vpn-accounts.txt[/dim]")
+        console.print("[dim]         https://pastebin.com/raw/ABC123[/dim]")
+        console.print("[dim]         https://example.com/vpn-list.txt[/dim]")
+        
+        try:
+            raw_url = input("Raw URL: ").strip()
+            if not raw_url:
+                console.print("[red]❌ No URL provided[/red]")
+                return []
+            
+            # Validate URL
+            parsed = urlparse(raw_url)
+            if not parsed.scheme or not parsed.netloc:
+                console.print("[red]❌ Invalid URL format[/red]")
+                return []
+            
+            return fetch_vpn_links_from_raw_url(raw_url)
+            
+        except EOFError:
+            return []
 
 def get_spinner(frame):
     return SPINNERS[frame % len(SPINNERS)]
