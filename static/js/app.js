@@ -1352,9 +1352,8 @@ async function uploadToGitHub() {
     }
 }
 
-// === AUTH & USER MANAGEMENT ===
+// === AUTH & USER MANAGEMENT (SIMPLE) ===
 
-// Utility: show notification
 function showNotification(message, type = 'info') {
     const notif = document.getElementById('notification');
     notif.textContent = message;
@@ -1363,72 +1362,56 @@ function showNotification(message, type = 'info') {
     setTimeout(() => { notif.style.display = 'none'; }, 4000);
 }
 
-// Utility: show/hide forms
 function showForm(formId) {
-    [
-        'login-form', 'register-form', 'reset-request-form', 'reset-password-form', 'verify-message'
-    ].forEach(id => {
+    ['login-form', 'register-form'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = (id === formId) ? 'block' : 'none';
     });
 }
 
-// Utility: show/hide app section
 function showAppSection(show) {
     document.getElementById('auth-section').style.display = show ? 'none' : 'block';
     document.getElementById('app-section').style.display = show ? 'block' : 'none';
 }
 
-// Utility: update user info in header
 function updateUserInfo(user) {
     const info = document.getElementById('user-info');
     if (user && user.logged_in) {
-        info.innerHTML = `<span>👤 ${user.username} (${user.email})${user.is_verified ? '' : ' <span style="color:orange">[Unverified]</span>'}</span>`;
+        info.innerHTML = `<span>👤 ${user.username}</span>`;
     } else {
         info.innerHTML = '';
     }
 }
 
-// Check login status on load
 async function checkLoginStatus() {
     const res = await fetch('/status');
     const data = await res.json();
     updateUserInfo(data);
-    if (data.logged_in && data.is_verified) {
+    if (data.logged_in) {
         showAppSection(true);
-        // Optionally, load user-specific data here
     } else {
         showAppSection(false);
-        if (data.logged_in && !data.is_verified) {
-            showForm('verify-message');
-            document.getElementById('verify-message').innerHTML = '<h3>Check your email to verify your account.</h3>';
-        } else {
-            showForm('login-form');
-        }
+        showForm('login-form');
     }
 }
 
-// Register
 if (document.getElementById('register-form')) {
     document.getElementById('register-form').onsubmit = async function(e) {
         e.preventDefault();
         const username = document.getElementById('register-username').value.trim();
-        const email = document.getElementById('register-email').value.trim();
         const password = document.getElementById('register-password').value;
         const res = await fetch('/register', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username, email, password})
+            body: JSON.stringify({username, password})
         });
         const data = await res.json();
         showNotification(data.message, data.success ? 'success' : 'error');
         if (data.success) {
-            showForm('verify-message');
-            document.getElementById('verify-message').innerHTML = '<h3>Check your email to verify your account.</h3>';
+            showForm('login-form');
         }
     };
 }
 
-// Login
 if (document.getElementById('login-form')) {
     document.getElementById('login-form').onsubmit = async function(e) {
         e.preventDefault();
@@ -1446,7 +1429,6 @@ if (document.getElementById('login-form')) {
     };
 }
 
-// Logout
 if (document.getElementById('logout-btn')) {
     document.getElementById('logout-btn').onclick = async function() {
         await fetch('/logout', {method: 'POST'});
@@ -1455,64 +1437,20 @@ if (document.getElementById('logout-btn')) {
     };
 }
 
-// Show/hide forms
 if (document.getElementById('show-register')) {
     document.getElementById('show-register').onclick = function(e) { e.preventDefault(); showForm('register-form'); };
 }
 if (document.getElementById('show-login')) {
     document.getElementById('show-login').onclick = function(e) { e.preventDefault(); showForm('login-form'); };
 }
-if (document.getElementById('show-login2')) {
-    document.getElementById('show-login2').onclick = function(e) { e.preventDefault(); showForm('login-form'); };
-}
-if (document.getElementById('show-reset')) {
-    document.getElementById('show-reset').onclick = function(e) { e.preventDefault(); showForm('reset-request-form'); };
-}
 
-// Request reset password
-if (document.getElementById('reset-request-form')) {
-    document.getElementById('reset-request-form').onsubmit = async function(e) {
-        e.preventDefault();
-        const email = document.getElementById('reset-email').value.trim();
-        const res = await fetch('/request-reset-password', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({email})
-        });
-        const data = await res.json();
-        showNotification(data.message, data.success ? 'success' : 'error');
-        if (data.success) {
-            showForm('login-form');
-        }
-    };
-}
-
-// Set new password (from reset link)
-if (document.getElementById('reset-password-form')) {
-    document.getElementById('reset-password-form').onsubmit = async function(e) {
-        e.preventDefault();
-        const token = document.getElementById('reset-token').value;
-        const new_password = document.getElementById('new-password').value;
-        const res = await fetch('/reset-password', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({token, new_password})
-        });
-        const data = await res.json();
-        showNotification(data.message, data.success ? 'success' : 'error');
-        if (data.success) {
-            showForm('login-form');
-        }
-    };
-}
-
-// Update profile
 if (document.getElementById('profile-form')) {
     document.getElementById('profile-form').onsubmit = async function(e) {
         e.preventDefault();
         const new_username = document.getElementById('profile-username').value.trim();
-        const new_email = document.getElementById('profile-email').value.trim();
         const res = await fetch('/update-profile', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({new_username, new_email})
+            body: JSON.stringify({new_username})
         });
         const data = await res.json();
         showNotification(data.message, data.success ? 'success' : 'error');
@@ -1522,7 +1460,24 @@ if (document.getElementById('profile-form')) {
     };
 }
 
-// Delete account
+if (document.getElementById('password-form')) {
+    document.getElementById('password-form').onsubmit = async function(e) {
+        e.preventDefault();
+        const old_password = document.getElementById('old-password').value;
+        const new_password = document.getElementById('new-password').value;
+        const res = await fetch('/update-password', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({old_password, new_password})
+        });
+        const data = await res.json();
+        showNotification(data.message, data.success ? 'success' : 'error');
+        if (data.success) {
+            document.getElementById('old-password').value = '';
+            document.getElementById('new-password').value = '';
+        }
+    };
+}
+
 if (document.getElementById('delete-account-btn')) {
     document.getElementById('delete-account-btn').onclick = async function() {
         if (confirm('Are you sure you want to delete your account?')) {
@@ -1533,26 +1488,8 @@ if (document.getElementById('delete-account-btn')) {
     };
 }
 
-// On page load, check login status
 window.addEventListener('DOMContentLoaded', async function() {
     await checkLoginStatus();
-    // If reset password token in URL, show set new password form
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('token') && document.getElementById('reset-password-form')) {
-        showForm('reset-password-form');
-        document.getElementById('reset-token').value = params.get('token');
-    }
-    // If verify email token in URL, auto-verify
-    if (window.location.pathname === '/verify-email' && params.has('token')) {
-        const res = await fetch(`/verify-email?token=${params.get('token')}`);
-        if (res.ok) {
-            showForm('login-form');
-            showNotification('Email verified! You can now login.', 'success');
-        } else {
-            showForm('login-form');
-            showNotification('Verification failed.', 'error');
-        }
-    }
 });
 
 // Mobile-specific enhancements
