@@ -629,29 +629,21 @@ function showTestingProgress() {
     initializeTestingTable();
 }
 
-// Initialize testing table
+// Global tracking for progressive table display
+let displayedAccountsCount = 0;
+let globalTestOrder = new Map(); // Maps result ID to global display order
+
+// Initialize testing table (USER REQUEST: Empty table, show accounts as they are tested)
 function initializeTestingTable() {
     const tableBody = document.getElementById('testing-table-body');
     if (!tableBody) return;
     
+    // USER REQUEST: Start with empty table, populate as tests progress
     tableBody.innerHTML = '';
+    displayedAccountsCount = 0;
+    globalTestOrder.clear();
     
-    // Add placeholder rows
-    for (let i = 0; i < totalAccounts; i++) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${i + 1}</td>
-            <td class="type-cell">-</td>
-            <td>❓</td>
-            <td>-</td>
-            <td>-</td>
-            <td class="latency-cell">—</td>
-            <td class="latency-cell">—</td>
-            <td class="status-cell">N/A</td>
-            <td class="status-cell status-waiting">⏳</td>
-        `;
-        tableBody.appendChild(row);
-    }
+    console.log('🔄 Initialized empty testing table - accounts will appear as they are tested');
 }
 
 // Hide testing progress UI
@@ -779,7 +771,7 @@ function updateTestStats(successful, failed, testing) {
     document.getElementById('testing-count').textContent = testing;
 }
 
-// Update live results display
+// Update live results display (USER REQUEST: Progressive table, show accounts as tested)
 function updateLiveResults(results) {
     const tableBody = document.getElementById('testing-table-body');
     if (!tableBody) {
@@ -787,20 +779,149 @@ function updateLiveResults(results) {
         return;
     }
     
-    tableBody.innerHTML = '';
-    
     if (!results || !Array.isArray(results)) {
         console.error('Invalid results data:', results);
         return;
     }
     
-    results.forEach((result, index) => {
-        const row = createTestingTableRow(result, index);
-        tableBody.appendChild(row);
+    // USER REQUEST: Progressive display - only show accounts being tested or completed
+    results.forEach((result, backendIndex) => {
+        const resultId = `${result.VpnType || result.type || 'unknown'}_${result.server || backendIndex}`;
+        
+        // Check if this account is being tested or completed
+        const isBeingTested = result.Status && !['WAIT', '🔄', '🔁'].includes(result.Status);
+        
+        if (isBeingTested) {
+            // Assign global display order if not already assigned
+            if (!globalTestOrder.has(resultId)) {
+                displayedAccountsCount++;
+                globalTestOrder.set(resultId, displayedAccountsCount);
+                
+                // USER REQUEST: Add new row when account starts testing
+                console.log(`🆕 Adding account ${displayedAccountsCount} to table (backend index ${backendIndex})`);
+                addNewTestingRow(result, displayedAccountsCount);
+            } else {
+                // Update existing row
+                updateExistingTestingRow(result, globalTestOrder.get(resultId));
+            }
+        }
     });
 }
 
-// Create testing table row
+// Add new testing row (USER REQUEST: Show account when testing starts)
+function addNewTestingRow(result, displayOrder) {
+    const tableBody = document.getElementById('testing-table-body');
+    const row = document.createElement('tr');
+    row.id = `testing-row-${displayOrder}`;
+    row.className = 'testing-row-new'; // For animation
+    
+    // Start with testing status
+    const rowHtml = createTestingRowHtml(result, displayOrder, true);
+    row.innerHTML = rowHtml;
+    
+    tableBody.appendChild(row);
+    
+    // Add slide-in animation
+    setTimeout(() => {
+        row.classList.add('testing-row-visible');
+    }, 100);
+}
+
+// Update existing testing row
+function updateExistingTestingRow(result, displayOrder) {
+    const row = document.getElementById(`testing-row-${displayOrder}`);
+    if (!row) return;
+    
+    const isComplete = !result.Status.includes('Testing') && !result.Status.includes('Retry');
+    const rowHtml = createTestingRowHtml(result, displayOrder, !isComplete);
+    row.innerHTML = rowHtml;
+    
+    // Add completion animation if test is done
+    if (isComplete) {
+        row.classList.add('testing-row-completed');
+    }
+}
+
+// Create testing table row HTML (USER REQUEST: Simplified latency, animated status)
+function createTestingRowHtml(result, displayOrder, isActive = false) {
+    const safeResult = {
+        Status: result.Status || 'WAIT',
+        VpnType: result.VpnType || result.type || 'N/A',
+        Country: result.Country || '❓',
+        Provider: result.Provider || '-',
+        'Tested IP': result['Tested IP'] || result.server || '-',
+        Latency: result.Latency || -1,
+        Jitter: result.Jitter || -1,
+        ICMP: result.ICMP || 'N/A'
+    };
+    
+    // USER REQUEST: Simplified latency format (no long decimals)
+    const latencyText = formatLatency(safeResult.Latency);
+    const jitterText = formatLatency(safeResult.Jitter);
+    
+    // USER REQUEST: Animated status dot
+    const statusHtml = createAnimatedStatus(safeResult.Status, isActive);
+    
+    return `
+        <td class="order-cell">${displayOrder}</td>
+        <td class="type-cell">${safeResult.VpnType}</td>
+        <td class="country-cell">${safeResult.Country}</td>
+        <td class="provider-cell">${safeResult.Provider}</td>
+        <td class="ip-cell">${safeResult['Tested IP']}</td>
+        <td class="latency-cell">${latencyText}</td>
+        <td class="jitter-cell">${jitterText}</td>
+        <td class="icmp-cell">${safeResult.ICMP}</td>
+        <td class="status-cell">${statusHtml}</td>
+    `;
+}
+
+// USER REQUEST: Format latency to be simple (no long decimals)
+function formatLatency(latency) {
+    if (latency === -1 || latency === null || latency === undefined) {
+        return '—';
+    }
+    
+    const numLatency = parseFloat(latency);
+    if (isNaN(numLatency)) return '—';
+    
+    // Round to whole number for clean display
+    return `${Math.round(numLatency)}ms`;
+}
+
+// USER REQUEST: Animated status dot with glowing effect
+function createAnimatedStatus(status, isActive) {
+    if (status.includes('Testing') || status.includes('Retry') || isActive) {
+        return `
+            <div class="status-testing">
+                <span class="status-dot testing-dot"></span>
+                <span class="status-text">Testing...</span>
+            </div>
+        `;
+    } else if (status === '●' || status === '✅' || status.includes('Success')) {
+        return `
+            <div class="status-success">
+                <span class="status-dot success-dot"></span>
+                <span class="status-text">Success</span>
+            </div>
+        `;
+    } else if (status.startsWith('✖') || status.includes('Failed') || status.includes('Error')) {
+        return `
+            <div class="status-failed">
+                <span class="status-dot failed-dot"></span>
+                <span class="status-text">Failed</span>
+            </div>
+        `;
+    } else {
+        return `
+            <div class="status-waiting">
+                <span class="status-dot waiting-dot"></span>
+                <span class="status-text">Waiting</span>
+            </div>
+        `;
+    }
+}
+
+// Create testing table row (LEGACY - keeping for compatibility)
 function createTestingTableRow(result, index) {
     const row = document.createElement('tr');
     
