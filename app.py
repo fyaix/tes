@@ -11,6 +11,11 @@ import tempfile
 import subprocess
 from dotenv import load_dotenv
 from urllib.parse import urlparse
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import datetime
+import random
 
 # Import existing modules
 from github_client import GitHubClient
@@ -20,7 +25,11 @@ from core import (
 )
 from extractor import extract_accounts_from_config
 from converter import parse_link, inject_outbounds_to_template
-from database import save_github_config, get_github_config, save_test_session, get_latest_test_session, create_user, verify_user_password, set_github_config_for_user, get_github_config_for_user, get_user_by_username
+from database import (
+    create_user, get_user_by_username, get_user_by_email, verify_user_password, set_verification_token, verify_user_email,
+    set_reset_token, verify_reset_token, update_user_password, update_user_profile, delete_user, generate_token,
+    save_github_config, get_github_config, save_test_session, get_latest_test_session, get_github_config_for_user, set_github_config_for_user
+)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -39,6 +48,26 @@ session_data = {
 
 MAX_CONCURRENT_TESTS = 5
 TEMPLATE_FILE = "template.json"
+
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
+SMTP_USERNAME = os.getenv('SMTP_USERNAME')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+EMAIL_FROM = os.getenv('EMAIL_FROM', SMTP_USERNAME)
+SITE_URL = os.getenv('SITE_URL', 'http://localhost:5000')
+
+# Helper: send email
+
+def send_email(to, subject, html):
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_FROM
+    msg['To'] = to
+    msg['Subject'] = subject
+    msg.attach(MIMEText(html, 'html'))
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        server.starttls()
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        server.sendmail(EMAIL_FROM, to, msg.as_string())
 
 def fetch_vpn_links_from_url(url, url_type='auto'):
     """
@@ -107,30 +136,112 @@ def register():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    if not username or not password:
-        return jsonify({'success': False, 'message': 'Username and password required'})
-    if create_user(username, password):
-        return jsonify({'success': True, 'message': 'User registered'})
-    else:
+    email = data.get('email')
+    if not username or not password or not email:
+        return jsonify({'success': False, 'message': 'Username, password, and email required'})
+    if get_user_by_username(username):
         return jsonify({'success': False, 'message': 'Username already exists'})
+    if get_user_by_email(email):
+        return jsonify({'success': False, 'message': 'Email already registered'})
+    if create_user(username, password, email):
+        token = generate_token()
+        set_verification_token(username, token)
+        verify_url = f"{SITE_URL}/verify-email?token={token}"
+        send_email(email, 'Verify your account', f'<h3>Verify your account</h3><p>Click <a href="{verify_url}">here</a> to verify your email.</p>')
+        return jsonify({'success': True, 'message': 'Registered! Please check your email to verify your account.'})
+    else:
+        return jsonify({'success': False, 'message': 'Registration failed'})
+
+@app.route('/verify-email', methods=['GET'])
+def verify_email():
+    token = request.args.get('token')
+    if not token:
+        return 'Invalid verification link', 400
+    verify_user_email(token)
+    return 'Email verified! You can now login.', 200
 
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    if not username or not password:
-        return jsonify({'success': False, 'message': 'Username and password required'})
-    if verify_user_password(username, password):
-        session['username'] = username
-        return jsonify({'success': True, 'message': 'Login successful'})
-    else:
+    user = get_user_by_username(username)
+    if not user or not verify_user_password(username, password):
         return jsonify({'success': False, 'message': 'Invalid credentials'})
+    if not user['is_verified']:
+        return jsonify({'success': False, 'message': 'Email not verified'})
+    session['username'] = username
+    return jsonify({'success': True, 'message': 'Login successful'})
 
 @app.route('/logout', methods=['POST'])
 def logout():
     session.pop('username', None)
     return jsonify({'success': True, 'message': 'Logged out'})
+
+@app.route('/request-reset-password', methods=['POST'])
+def request_reset_password():
+    data = request.json
+    email = data.get('email')
+    user = get_user_by_email(email)
+    if not user:
+        return jsonify({'success': False, 'message': 'Email not found'})
+    token = generate_token()
+    expiry = (datetime.datetime.utcnow() + datetime.timedelta(hours=1)).isoformat()
+    set_reset_token(email, token, expiry)
+    reset_url = f"{SITE_URL}/reset-password?token={token}"
+    send_email(email, 'Reset your password', f'<h3>Reset Password</h3><p>Click <a href="{reset_url}">here</a> to reset your password.</p>')
+    return jsonify({'success': True, 'message': 'Reset link sent to your email'})
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    data = request.json
+    token = data.get('token')
+    new_password = data.get('new_password')
+    user = verify_reset_token(token)
+    if not user:
+        return jsonify({'success': False, 'message': 'Invalid or expired token'})
+    update_user_password(user['email'], new_password)
+    return jsonify({'success': True, 'message': 'Password updated'})
+
+@app.route('/update-profile', methods=['POST'])
+def update_profile():
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    data = request.json
+    new_username = data.get('new_username')
+    new_email = data.get('new_email')
+    username = session['username']
+    if new_username and get_user_by_username(new_username):
+        return jsonify({'success': False, 'message': 'Username already exists'})
+    if new_email and get_user_by_email(new_email):
+        return jsonify({'success': False, 'message': 'Email already registered'})
+    update_user_profile(username, new_username, new_email)
+    if new_username:
+        session['username'] = new_username
+    if new_email:
+        # Kirim ulang email verifikasi
+        token = generate_token()
+        set_verification_token(new_username or username, token)
+        verify_url = f"{SITE_URL}/verify-email?token={token}"
+        send_email(new_email, 'Verify your new email', f'<h3>Verify your new email</h3><p>Click <a href="{verify_url}">here</a> to verify your new email.</p>')
+    return jsonify({'success': True, 'message': 'Profile updated'})
+
+@app.route('/delete-account', methods=['POST'])
+def delete_account():
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    username = session['username']
+    delete_user(username)
+    session.pop('username', None)
+    return jsonify({'success': True, 'message': 'Account deleted'})
+
+@app.route('/status', methods=['GET'])
+def status():
+    if 'username' in session:
+        user = get_user_by_username(session['username'])
+        return jsonify({'logged_in': True, 'username': user['username'], 'email': user['email'], 'is_verified': bool(user['is_verified'])})
+    else:
+        return jsonify({'logged_in': False})
 
 @app.route('/api/list-github-files')
 def list_github_files():
@@ -740,7 +851,6 @@ def preview_server_replacement():
         servers = parse_servers_input(servers_input)
         
         # Generate random distribution
-        import random
         accounts = session_data['all_accounts'].copy()
         random.shuffle(accounts)
         
